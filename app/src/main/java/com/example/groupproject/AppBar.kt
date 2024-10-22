@@ -40,9 +40,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.modifier.modifierLocalMapOf
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -69,7 +73,7 @@ fun TopNavigationBar(onBackClick: () -> Unit, title: String) {
 }
 
 @Composable
-fun TopNavigationBar2(){
+fun TopNavigationBar2(onMenuClick: () -> Unit){
     Row(
         modifier = Modifier.fillMaxWidth()
             .background(Color.Gray)
@@ -79,7 +83,7 @@ fun TopNavigationBar2(){
         Icon(
             imageVector = Icons.Default.Menu,
             contentDescription = "Menu",
-            modifier = Modifier.clickable { onMenuClick() }
+            modifier = Modifier.clickable {onMenuClick()}
         )
     }
 }
@@ -161,31 +165,137 @@ fun BottomNavigationBar(navController: NavController) {
 }
 
 @Composable
-fun DrawerContent(drawerState: DrawerState, navController: NavController){
-    Column(
-        modifier = Modifier.fillMaxSize().padding(16.dp)
+fun BottomNavigationBar2(navController: NavController, clientId: String, clientName: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color.Gray),
+        horizontalArrangement = Arrangement.SpaceAround
     ) {
-        Text(text = "Opciones")
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.clickable {
+                navController.navigate("clientDetail/$clientId/$clientName") {
+                    popUpTo(navController.graph.startDestinationId)
+                    launchSingleTop = true
+                }
+            }
+        ) {
+            Icon(
+                imageVector = Icons.Default.Home,
+                contentDescription = "Home"
+            )
+            Text("Home", color = Color.Black)
+        }
+
+        Spacer(modifier = Modifier.width(8.dp))
+
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.clickable {
+                navController.navigate("crypto/$clientId/$clientName") {
+                    popUpTo(navController.graph.startDestinationId)
+                    launchSingleTop = true
+                }
+            }
+        ) {
+            Icon(
+                imageVector = Icons.Default.AddCircle,
+                contentDescription = "Crypto"
+            )
+            Text("Crypto", color = Color.Black)
+        }
+
+        Spacer(modifier = Modifier.width(8.dp))
+
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.clickable {
+                navController.navigate("assets/$clientId/$clientName") {
+                    popUpTo(navController.graph.startDestinationId)
+                    launchSingleTop = true
+                }
+            }
+        ) {
+            Icon(
+                imageVector = Icons.Default.AccountBox,
+                contentDescription = "Assets"
+            )
+            Text("Assets", color = Color.Black)
+        }
+
+        Spacer(modifier = Modifier.width(8.dp))
+
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.clickable {
+                navController.navigate("portfolio/$clientId/$clientName") {
+                    popUpTo(navController.graph.startDestinationId)
+                    launchSingleTop = true
+                }
+            }
+        ) {
+            Icon(
+                imageVector = Icons.Default.Build,
+                contentDescription = "Portfolio"
+            )
+            Text("Portfolio", color = Color.Black)
+        }
+    }
+}
+@Composable
+fun DrawerContent(navController: NavController, scope: CoroutineScope, drawerState: DrawerState) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.Top
+    ) {
+        Text(
+            text = "Menu",
+            fontWeight = FontWeight.Bold,
+            fontSize = 20.sp,
+            color = Color.Black
+        )
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Opción "Buy"
+        Text(
+            text = "Buy",
+            modifier = Modifier
+                .clickable {
+                    // Cerrar el drawer antes de navegar
+                    scope.launch {
+                        drawerState.close()
+                    }
+                    // Navegar a la pantalla de compra
+                    navController.navigate(Screen.Buy.route)
+                }
+                .padding(16.dp),
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Medium,
+            color = Color.Black
+        )
+
         Spacer(modifier = Modifier.height(16.dp))
-        // Ejemplo de opciones del Drawer
-        TextButton(onClick = {
-            // Navegación o acción aquí
-            // Por ejemplo, cerrar el Drawer
-            // Puedes agregar lógica de navegación aquí
-        }) {
-            Text("Opción 1")
-        }
-        TextButton(onClick = {
-            // Navegación o acción aquí
-            // Puedes agregar lógica de navegación aquí
-        }) {
-            Text("Opción 2")
-        }
-        TextButton(onClick = {
-            // Navegación o acción aquí
-            // Puedes agregar lógica de navegación aquí
-        }) {
-            Text("Opción 3")
-        }
+
+        // Opción "Support"
+        Text(
+            text = "Support",
+            modifier = Modifier
+                .clickable {
+                    // Cerrar el drawer antes de navegar
+                    scope.launch {
+                        drawerState.close()
+                    }
+                    // Navegar a la pantalla de soporte
+                    navController.navigate(Screen.Support.route)
+                }
+                .padding(16.dp),
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Medium,
+            color = Color.Black
+        )
     }
 }

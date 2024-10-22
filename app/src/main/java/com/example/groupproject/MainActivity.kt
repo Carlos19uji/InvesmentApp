@@ -71,6 +71,14 @@ sealed class Screen(val route : String, val title: String){
     object Portfolio : Screen("portfolio_screen", "")
     object Assets : Screen("assets_screen", "")
     object CorrectLogIn : Screen("correct_lon_in", "")
+    object Support : Screen("support", "")
+    object Buy : Screen("buy", "")
+    object FundManagerClients : Screen("fund_manager_clients", "My Clients")
+    object ClientDetails : Screen("client_detail/{clientIndex}", "Client Details") {
+        fun createRoute(clientIndex: Int): String{
+            return "clientDetails/$clientIndex"
+        }
+    }
 }
 
 class MainActivity : ComponentActivity() {
