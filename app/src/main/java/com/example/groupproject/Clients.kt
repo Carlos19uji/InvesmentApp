@@ -30,23 +30,6 @@ val clients = listOf(
     Client("Cliente C", "ID789")
 )
 
-@Composable
-fun ClientRow(client: Client, onClick: () -> Unit, clientIndex: Int){
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(Color.White)
-            .clickable {
-               onClick()
-            }
-            .padding(8.dp)
-    ) {
-        Text(text = client.name, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-        Spacer(modifier = Modifier.weight(1f))
-        Text(text = client.id, fontSize = 16.sp, fontWeight = FontWeight.Medium)
-    }
-}
 
 @Composable
 fun ClientDetailScreen(clientId: String, clientName: String) {
@@ -56,9 +39,10 @@ fun ClientDetailScreen(clientId: String, clientName: String) {
             .background(Color.Gray)
     ) {
         Text(
-            text = "Cliente: $clientName (ID: $clientId)",
+            text = "Client: $clientName (ID: $clientId)",
             color = Color.White,
-            fontSize = 20.sp,
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(16.dp)
         )
         Column(
@@ -67,7 +51,7 @@ fun ClientDetailScreen(clientId: String, clientName: String) {
                 .padding(16.dp)
         ) {
             HomeSummary()
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(32.dp))
             ImportantAlertsVisual()
         }
     }
@@ -87,13 +71,12 @@ fun ClientPortfolioScreen(navController: NavHostController, clientId: String, cl
             modifier = Modifier.padding(16.dp)
         )
 
-        // Mostrar el contenido principal de la pantalla Portfolio
         Column(
             modifier = Modifier
-                .weight(1f)  // Ocupa el espacio restante
+                .weight(1f)
                 .padding(16.dp)
         ) {
-            portfolio()  // Reutilizamos la función portfolio
+            portfolio()
         }
     }
 }
@@ -119,7 +102,7 @@ fun ClientAssetsScreen(navController: NavHostController, clientId: String, clien
                 .weight(1f)  // Ocupa el espacio restante
                 .padding(16.dp)
         ) {
-            assests()  // Reutilizamos la función assets
+            assests(navController = navController)  // Reutilizamos la función assets
         }
     }
 }
@@ -142,7 +125,7 @@ fun ClientCryptoScreen(navController: NavHostController, clientId: String, clien
                 .weight(1f)
                 .padding(16.dp)
         ) {
-            crypto()
+            crypto(navController)
         }
     }
 }

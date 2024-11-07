@@ -46,24 +46,22 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 
-data class Crypto(val name: String, val image: Int, val price: Double, val percentangeChange : Double)
-data class Stock(val name: String, val image: Int, val price: Double, val percentangeChange: Double)
+data class Item(val name: String, val image: Int, val price: Double, val percentangeChange : Double, val type: String)
 
-val cryptos = listOf(
-    Crypto("Bitcoin", R.drawable.crypto, 38000.0, 3.5),
-    Crypto("Ethereum", R.drawable.crypto, 2500.0, -1.2),
-    Crypto("Ripple", R.drawable.crypto, 1.2, 4.0),
-    Crypto("Litecoin", R.drawable.crypto, 150.0, -0.5)
+val items = listOf(
+    Item("Bitcoin", R.drawable.bitcoin, 38000.0, 3.5, "crypto"),
+    Item("Ethereum", R.drawable.ethereum, 2500.0, -1.2, "crypto"),
+    Item("Ripple", R.drawable.ripple, 1.2, 4.0, "crypto"),
+    Item("Litecoin", R.drawable.litecoin, 150.0, -0.5, "crypto"),
+    Item("Apple", R.drawable.apple, 150.0, 2.5, "stock"),
+    Item("Tesla", R.drawable.tesla, 720.0, -3.8, "stock"),
+    Item("Amazon", R.drawable.amazon, 3500.0, 1.1, "stock"),
+    Item("Google", R.drawable.google, 2800.0, -0.6, "stock"),
 )
 
-val stocks = listOf(
-    Stock("Apple", R.drawable.stock, 150.0, 2.5),
-    Stock("Tesla", R.drawable.stock, 720.0, -3.8),
-    Stock("Amazon", R.drawable.stock, 3500.0, 1.1),
-    Stock("Google", R.drawable.stock, 2800.0, -0.6)
-)
+
 @Composable
-fun Correct_Log_In_Screen(navController: NavHostController) {
+fun Correct_Log_In_Screen() {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -84,6 +82,7 @@ fun HomeSummary() {
     Box(
         modifier = Modifier
             .fillMaxWidth()
+            .height(300.dp)
             .background(Color.Black, RoundedCornerShape(16.dp))
             .padding(16.dp)
     ) {
@@ -118,6 +117,7 @@ fun ImportantAlertsVisual() {
     Box(
         modifier = Modifier
             .fillMaxWidth()
+            .height(150.dp)
             .background(Color.Black, RoundedCornerShape(16.dp))
             .padding(16.dp)
     ) {
@@ -152,7 +152,7 @@ fun ImportantAlertsVisual() {
 }
 
 @Composable
-fun assests() {
+fun assests(navController: NavController) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -176,9 +176,11 @@ fun assests() {
         ) {
 
             LazyColumn(modifier = Modifier.fillMaxSize()) {
-                itemsIndexed(stocks) { index, stock ->
-                    Spacer(modifier = Modifier.height(16.dp))
-                    AssetsRow(stock = stock)
+                itemsIndexed(items) { index, item ->
+                    if (item.type == "stock") {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        AssetsRow(stock = item, navController = navController, index = index)
+                    }
                 }
             }
         }
@@ -187,7 +189,7 @@ fun assests() {
 
 
 @Composable
-fun AssetsRow(stock: Stock){
+fun AssetsRow(stock: Item, navController: NavController, index: Int){
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -233,7 +235,7 @@ fun AssetsRow(stock: Stock){
 
             Spacer(modifier = Modifier.weight(1f))
             Button(
-                onClick = { /* Acción para comprar */ },
+                onClick = {navController.navigate(Screen.Buy.createRoute(index)) },
                 colors = ButtonDefaults.buttonColors(containerColor = Color.Black), // Fondo negro
                 shape = RoundedCornerShape(16.dp) // Botón redondeado
             ) {
@@ -247,7 +249,7 @@ fun AssetsRow(stock: Stock){
     }
 }
 @Composable
-fun crypto() {
+fun crypto(navController: NavController) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -270,9 +272,11 @@ fun crypto() {
         ) {
 
             LazyColumn(modifier = Modifier.fillMaxSize()) {
-                itemsIndexed(cryptos) { index, crypto ->
-                    Spacer(modifier = Modifier.height(16.dp))
-                    CryptoRow(crypto = crypto)
+                itemsIndexed(items) { index, item ->
+                    if (item.type == "crypto") {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        CryptoRow(crypto = item, navController = navController, index = index)
+                    }
                 }
             }
         }
@@ -280,7 +284,7 @@ fun crypto() {
 }
 
 @Composable
-fun CryptoRow(crypto: Crypto){
+fun CryptoRow(crypto: Item, navController: NavController, index: Int){
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -326,7 +330,7 @@ fun CryptoRow(crypto: Crypto){
 
             Spacer(modifier = Modifier.weight(1f))
             Button(
-                onClick = { /* Acción para comprar */ },
+                onClick = { navController.navigate(Screen.Buy.createRoute(index))},
                 colors = ButtonDefaults.buttonColors(containerColor = Color.Black), // Fondo negro
                 shape = RoundedCornerShape(16.dp) // Botón redondeado
             ) {
@@ -416,7 +420,4 @@ fun support(navController: NavController) {
     }
 }
 
-@Composable
-fun buy_screen(){
 
-}

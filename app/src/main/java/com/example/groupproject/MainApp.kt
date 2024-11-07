@@ -1,35 +1,28 @@
 package com.example.groupproject
 
-import android.annotation.SuppressLint
-import android.util.Log
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
-import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import androidx.navigation.navArgument
-import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
 
 
 @Composable
-fun MainApp(auth: FirebaseAuth, googleSignInClient: GoogleSignInClient, signInWithGoogle: () -> Unit) {
+fun MainApp( auth: FirebaseAuth,
+             signInWithGoogle: () -> Unit,
+             createAccountWithGoogle: (String) -> Unit) {
+
     val navController = rememberNavController()
     val isUserLoggedIn = remember { mutableStateOf(false) }
 
@@ -59,13 +52,15 @@ fun MainApp(auth: FirebaseAuth, googleSignInClient: GoogleSignInClient, signInWi
                 if (currentScreen in listOf(
                         Screen.Login.route,
                         Screen.CreateAccount.route,
-                        Screen.Password.route
+                        Screen.Password.route,
+                        Screen.Buy.route
                     )
                 ) {
                     val title = when (currentScreen) {
                         Screen.Login.route -> "Login"
                         Screen.CreateAccount.route -> "Register"
                         Screen.Password.route -> "Forgot Password"
+                        Screen.Buy.route -> "Buy"
                         else -> ""
                     }
                     TopNavigationBar(onBackClick = { navController.popBackStack() }, title = title)
@@ -77,7 +72,7 @@ fun MainApp(auth: FirebaseAuth, googleSignInClient: GoogleSignInClient, signInWi
                         Screen.Portfolio.route
                     )
                 ) {
-                    TopNavigationBar2(onMenuClick = {scope.launch { drawerState.open() }})
+                    TopNavigationBar2(onMenuClick = { scope.launch { drawerState.open() } })
                 }
             },
             bottomBar = {
@@ -103,8 +98,8 @@ fun MainApp(auth: FirebaseAuth, googleSignInClient: GoogleSignInClient, signInWi
                         auth = auth,
                         signInWithGoogle = signInWithGoogle,
                         onCreateAccountClick = { navController.navigate(Screen.CreateAccount.route) },
-                        onForgotPasswordClick = { navController.navigate(Screen.Password.route)},
-                        onUserLoggedIn = {   isAdminUser.value = it}
+                        onForgotPasswordClick = { navController.navigate(Screen.Password.route) },
+                        onUserLoggedIn = { isAdminUser.value = it }
                     )
                 }
                 composable(Screen.CreateAccount.route) {
@@ -112,6 +107,7 @@ fun MainApp(auth: FirebaseAuth, googleSignInClient: GoogleSignInClient, signInWi
                         onLoginClick = { navController.navigate(Screen.Login.route) },
                         navController = navController,
                         auth = auth,
+                        createAccountWithGoogle = createAccountWithGoogle,
                         signInWithGoogle = signInWithGoogle
                     )
                 }
@@ -119,34 +115,44 @@ fun MainApp(auth: FirebaseAuth, googleSignInClient: GoogleSignInClient, signInWi
                     forgot_password(auth, navController)
                 }
                 composable(Screen.CorrectLogIn.route) {
-                    Correct_Log_In_Screen(navController = navController)
+                    Correct_Log_In_Screen()
                     isUserLoggedIn.value = true
                 }
                 composable(Screen.Crypto.route) {
-                    crypto()
+                    crypto(navController = navController)
                 }
                 composable(Screen.Portfolio.route) {
                     portfolio()
                 }
                 composable(Screen.Assets.route) {
-                    assests()
+                    assests(navController = navController)
                 }
                 composable(Screen.Support.route) {
                     support(navController)
                 }
-                composable(Screen.Buy.route) {
-                    buy_screen()
+                composable(Screen.Buy.route) { backStackEntry ->
+                    val index = backStackEntry.arguments?.getString("index")?.toIntOrNull()
+                    index?.let {
+                        val item = items[index]
+                        buy_screen(
+                            Name = item.name,
+                            Price = item.price,
+                            Image = item.image,
+                            Percentage = item.percentangeChange
+                        )
+                    }
                 }
-                composable(Screen.FundManagerClients.route){
+                composable(Screen.FundManagerClients.route) {
                     FundManagerClientsScreen(navController)
                 }
-                composable(Screen.ClientDetails.route){ backStackEntry ->
-                   val clientIndex = backStackEntry.arguments?.getString("clientIndex")?.toIntOrNull()
+                composable(Screen.ClientDetails.route) { backStackEntry ->
+                    val clientIndex = backStackEntry.arguments?.getString("clientIndex")?.toIntOrNull()
                     clientIndex?.let {
                         val client = clients[it]
                         ClientDetailScreen(
                             clientName = client.name,
-                            clientId = client.id)
+                            clientId = client.id
+                        )
                     }
                 }
             }

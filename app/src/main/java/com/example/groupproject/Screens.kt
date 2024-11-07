@@ -20,10 +20,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -143,25 +140,10 @@ fun LoginScreen(
                 auth.signInWithEmailAndPassword(emailState.value, passwordState.value)
                     .addOnCompleteListener { task ->
                         if (task.isSuccessful) {
-                            // Aquí asumimos que el usuario ha iniciado sesión exitosamente.
                             onUserLoggedIn(true)
-
-                            // Llama a la función para verificar el rol del usuario
                             val userId = auth.currentUser?.uid
-                            userId?.let { id ->
-                                checkUserRol(id) { isAdmin ->
-                                    if (isAdmin) {
-                                        // Redirige a la pantalla de administrador
-                                        navController.navigate(Screen.FundManagerClients.route) {
-                                            popUpTo(Screen.Login.route) { inclusive = true }
-                                        }
-                                    } else {
-                                        // Redirige a la pantalla de inicio
-                                        navController.navigate(Screen.CorrectLogIn.route) {
-                                            popUpTo(Screen.Login.route) { inclusive = true }
-                                        }
-                                    }
-                                }
+                            userId?.let {
+                                checkUserRol(it, navController)
                             }
                         } else {
                             Toast.makeText(
@@ -208,20 +190,6 @@ fun LoginScreen(
     }
 }
 
-fun checkUserRol(userId: String, onRoleCheck: (Boolean) -> Unit) {
-    val user = FirebaseFirestore.getInstance().collection("users").document(userId)
-    user.get().addOnCompleteListener { document ->
-        if (document.isSuccessful && document.result != null) {
-            val role = document.result?.getString("role")
-            onRoleCheck(role == "Fund Administrator")
-        } else {
-            onRoleCheck(false) // En caso de error, asumimos que no es administrador
-        }
-    }.addOnFailureListener { e ->
-        Log.e("Firestore", "Error getting user role", e)
-        onRoleCheck(false) // En caso de fallo, asumimos que no es administrador
-    }
-}
 @Composable
 fun forgot_password(auth: FirebaseAuth, navController: NavController){
     val emailSent = remember { mutableStateOf(false) }
@@ -288,13 +256,16 @@ fun create_account(
     onLoginClick: () -> Unit,
     navController: NavController,
     auth: FirebaseAuth,
-    signInWithGoogle: () -> Unit){
+    createAccountWithGoogle: (String) -> Unit,
+    signInWithGoogle: () -> Unit
+) {
 
     var emailState  = remember { mutableStateOf("") }
     var passwordState = remember { mutableStateOf("") }
     val errorMessage = remember { mutableStateOf<String?>(null) }
     var selectedRole by remember { mutableStateOf("") }
     val context = LocalContext.current
+    var roleError by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -307,6 +278,7 @@ fun create_account(
 
         log_in_facebook()
         log_in_google(signInWithGoogle)
+
 
         Spacer(modifier = Modifier.height(30.dp))
 
@@ -332,7 +304,8 @@ fun create_account(
                 Spacer(modifier = Modifier.height(8.dp))
                 RadioButton(
                     selected = selectedRole == "Fund Administrator",
-                    onClick = {selectedRole = "Fund Administrator"}
+                    onClick = {selectedRole = "Fund Administrator"
+                    roleError = false}
                 )
             }
             Spacer(modifier = Modifier.width(16.dp))
@@ -342,39 +315,40 @@ fun create_account(
                 Spacer(modifier = Modifier.height(8.dp))
                 RadioButton(
                     selected = selectedRole == "Normal Client",
-                    onClick = {selectedRole = "Normal Client"}
+                    onClick = {selectedRole = "Normal Client"
+                    roleError = false}
                 )
             }
+        }
+        if (roleError){
+            Text("You must select an account type", color = Color.Red, fontSize = 14.sp)
         }
 
         Spacer(modifier = Modifier.height(20.dp))
         Button(
-            onClick = {auth.createUserWithEmailAndPassword(emailState.value, passwordState.value)
-                .addOnCompleteListener { task ->
-                    if(task.isSuccessful){
-                        val userId = task.result?.user?.uid
-                        if (userId != null){
-                            val db = FirebaseFirestore.getInstance()
-                            val userDoc = db.collection("users").document(userId)
-                            val userData = hashMapOf("role" to selectedRole)
+            onClick = {
+                if (selectedRole.isEmpty()) {
+                    roleError = true
+                }else{
+                    auth.createUserWithEmailAndPassword(emailState.value, passwordState.value)
+                        .addOnCompleteListener { task ->
+                            if(task.isSuccessful){
+                                val userId = task.result?.user?.uid
+                                if (userId != null){
+                                    val db = FirebaseFirestore.getInstance()
+                                    val userDoc = db.collection("users").document(userId)
+                                    val userData = hashMapOf("role" to selectedRole)
 
-                            userDoc.set(userData).addOnSuccessListener {
-                                if (selectedRole == "Fund Administrator") {
-                                    navController.navigate(Screen.CorrectLogIn.route) {
-                                        popUpTo(Screen.CreateAccount.route) { inclusive = true }
-                                    }
-                                } else {
-                                    navController.navigate(Screen.FundManagerClients.route) {
-                                        popUpTo(Screen.CreateAccount.route) { inclusive = true }
+                                    userDoc.set(userData).addOnSuccessListener {
+                                        checkUserRol(userId, navController)
+                                    }.addOnFailureListener{ e ->
+                                        errorMessage.value = "Error saving user data: ${e.message}"
                                     }
                                 }
-                            }.addOnFailureListener{ e ->
-                                errorMessage.value = "Error saving user data: ${e.message}"
+                            }else{
+                                errorMessage.value = "Error: ${task.exception?.message}"
                             }
                         }
-                    }else{
-                        errorMessage.value = "Error: ${task.exception?.message}"
-                    }
                 }},
             colors = ButtonDefaults.buttonColors(containerColor = Color.White)
         ) {

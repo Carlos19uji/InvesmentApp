@@ -1,7 +1,7 @@
 package com.example.groupproject
 
-import android.annotation.SuppressLint
 import android.os.Bundle
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -9,15 +9,9 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -26,34 +20,18 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.groupproject.ui.theme.GroupProjectTheme
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.style.TextAlign
 import androidx.navigation.NavController
-import androidx.navigation.NavHostController
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
@@ -61,6 +39,7 @@ import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
+import com.google.firebase.firestore.FirebaseFirestore
 
 sealed class Screen(val route : String, val title: String){
     object Home : Screen("home_screen", "Home")
@@ -72,11 +51,15 @@ sealed class Screen(val route : String, val title: String){
     object Assets : Screen("assets_screen", "")
     object CorrectLogIn : Screen("correct_lon_in", "")
     object Support : Screen("support", "")
-    object Buy : Screen("buy", "")
     object FundManagerClients : Screen("fund_manager_clients", "My Clients")
     object ClientDetails : Screen("client_detail/{clientIndex}", "Client Details") {
         fun createRoute(clientIndex: Int): String{
             return "clientDetails/$clientIndex"
+        }
+    }
+    object Buy : Screen("buy_screen/{index}", "Buy") {
+        fun createRoute(index: Int): String {
+            return "buy_screen/$index"
         }
     }
 }
@@ -100,10 +83,11 @@ class MainActivity : ComponentActivity() {
         setContent {
             GroupProjectTheme {
                 navController = rememberNavController()
-                MainApp(auth, googleSignInClient, ::signInWithGoogle)
+                MainApp(auth, ::signInWithGoogle, ::createAccountWithGoogle)
             }
         }
     }
+
     private val googleSignInLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
         try {
@@ -118,11 +102,12 @@ class MainActivity : ComponentActivity() {
         val credential = GoogleAuthProvider.getCredential(idToken, null)
         auth.signInWithCredential(credential).addOnCompleteListener(this) { task ->
             if (task.isSuccessful) {
-                Toast.makeText(this, "Signed in with Google", Toast.LENGTH_SHORT).show()
-                navController.navigate(Screen.CorrectLogIn.route){
-                    popUpTo(Screen.Login.route) {inclusive = true}
+                val userId = auth.currentUser?.uid
+                if (userId != null){
+                    checkUserRol(userId, navController)
+                }else {
+                    Toast.makeText(this, "Signed in with Google", Toast.LENGTH_SHORT).show()
                 }
-
             } else {
                 Toast.makeText(this, "Authentication Failed.", Toast.LENGTH_SHORT).show()
             }
@@ -133,8 +118,58 @@ class MainActivity : ComponentActivity() {
         val signInIntent = googleSignInClient.signInIntent
         googleSignInLauncher.launch(signInIntent)
     }
+
+    fun createAccountWithGoogle(selectedRole: String) {
+        val idToken = ""
+        val credential = GoogleAuthProvider.getCredential(idToken, null)
+
+        auth.signInWithCredential(credential).addOnCompleteListener(this) { task ->
+            if (task.isSuccessful) {
+                val userId = auth.currentUser?.uid
+                if (userId != null) {
+                    val db = FirebaseFirestore.getInstance()
+                    val userDoc = db.collection("users").document(userId)
+                    val userData = hashMapOf("role" to selectedRole)
+
+                    userDoc.set(userData).addOnSuccessListener {
+                        checkUserRol(userId, navController)
+                    }.addOnFailureListener { e ->
+                        Toast.makeText(this, "Error saving user role: ${e.message}", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            } else {
+                Toast.makeText(this, "Authentication Failed.", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 }
 
+
+fun checkUserRol(userId: String, navController: NavController) {
+    val user = FirebaseFirestore.getInstance().collection("users").document(userId)
+    user.get().addOnCompleteListener { document ->
+        if (document.isSuccessful && document.result != null) {
+            val role = document.result?.getString("role")
+            Log.d("checkUserRol", "User role fetched: $role")
+            if (role == "Fund Administrator") {
+                Log.d("checkUserRol", "Navigating to FundManagerClients")
+                navController.navigate(Screen.FundManagerClients.route){
+                    popUpTo(Screen.Login.route){inclusive = true}
+                }
+            }else{
+                Log.d("checkUserRol", "Navigating to CorrectLogIn")
+                navController.navigate(Screen.CorrectLogIn.route){
+                    popUpTo(Screen.Login.route){inclusive = true}
+                }
+            }
+        } else {
+            Log.e("Firestore", "Error getting user role or document doesn't exist")
+        }
+    }.addOnFailureListener { e ->
+        Log.e("Firestore", "Error getting user role", e)
+
+    }
+}
 @Composable
 fun Greeting(name: String, modifier: Modifier = Modifier) {
     Text(
@@ -205,6 +240,36 @@ fun log_in_google(signInWithGoogle: () -> Unit){
             }
     }
 }
+
+@Composable
+fun create_with_google(createAccount: () -> Unit){
+    Button(
+        onClick = { createAccount() },
+        colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+        shape = RoundedCornerShape(50),
+        modifier = Modifier
+            .width(300.dp)
+            .padding(vertical = 8.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+
+            Image(
+                painter = painterResource(id = R.drawable.google),
+                contentDescription = "Google logo",
+                modifier = Modifier.size(24.dp)
+                    .clip(CircleShape)
+            )
+
+            Spacer(modifier = Modifier.width(30.dp))
+            Text(text = "Continue with Google", color = Color.Black, fontSize = 18.sp)
+
+        }
+    }
+}
+
 @Composable
 fun email(emailState: MutableState<String>){
     Row(
