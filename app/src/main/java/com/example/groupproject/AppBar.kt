@@ -1,13 +1,9 @@
 package com.example.groupproject
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.List
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -25,6 +21,8 @@ import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.DrawerState
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -35,6 +33,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -73,9 +73,11 @@ fun TopNavigationBar(onBackClick: () -> Unit, title: String) {
 }
 
 @Composable
-fun TopNavigationBar2(onMenuClick: () -> Unit){
+fun TopNavigationBar2(navController: NavController, isAdminUser: Boolean){
+    val expanded = remember { mutableStateOf(false) }
     Row(
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
             .background(Color.Gray)
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -83,13 +85,33 @@ fun TopNavigationBar2(onMenuClick: () -> Unit){
         Icon(
             imageVector = Icons.Default.Menu,
             contentDescription = "Menu",
-            modifier = Modifier.clickable {onMenuClick()}
+            modifier = Modifier.clickable {expanded.value = true}
         )
+        DropdownMenu (
+            expanded = expanded.value,
+            onDismissRequest = { expanded.value = false } // Cierra el menú al hacer clic fuera
+        ) {
+            DropdownMenuItem(
+                text = {Text("Support")},
+                onClick = {
+                    navController.navigate(Screen.Support.route)
+                    expanded.value = false}
+            )
+            if(isAdminUser) {
+                DropdownMenuItem(
+                    text = { Text("Clients List") },
+                    onClick = {
+                        navController.navigate(Screen.FundManagerClients.route)
+                        expanded.value = false
+                    }
+                )
+            }
+        }
     }
 }
 
 @Composable
-fun BottomNavigationBar(navController: NavController) {
+fun BottomNavigationBar(navController: NavController, isAdminUser: Boolean, selectedClientIndex: Int?) {
         Row(
             modifier = Modifier.fillMaxWidth()
                 .background(Color.Gray),
@@ -98,9 +120,18 @@ fun BottomNavigationBar(navController: NavController) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.clickable {
-                    navController.navigate(Screen.CorrectLogIn.route) {
-                        popUpTo(navController.graph.startDestinationId)
-                        launchSingleTop = true
+                    if (isAdminUser) {
+                        selectedClientIndex?.let { index ->
+                            navController.navigate(Screen.ClientDetails.createRoute(index)) {
+                                popUpTo(navController.graph.startDestinationId)
+                                launchSingleTop = true
+                            }
+                        }
+                    } else{
+                        navController.navigate(Screen.CorrectLogIn.route) {
+                            popUpTo(navController.graph.startDestinationId)
+                            launchSingleTop = true
+                        }
                     }
                 }
             ){
@@ -260,42 +291,19 @@ fun DrawerContent(navController: NavController, scope: CoroutineScope, drawerSta
         )
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Opción "Buy"
-        Text(
-            text = "Buy",
-            modifier = Modifier
-                .clickable {
-                    // Cerrar el drawer antes de navegar
-                    scope.launch {
-                        drawerState.close()
-                    }
-                    // Navegar a la pantalla de compra
-                    navController.navigate(Screen.Buy.route)
-                }
-                .padding(16.dp),
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Medium,
-            color = Color.Black
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Opción "Support"
         Text(
             text = "Support",
             modifier = Modifier
                 .clickable {
-                    // Cerrar el drawer antes de navegar
                     scope.launch {
                         drawerState.close()
                     }
-                    // Navegar a la pantalla de soporte
-                    navController.navigate(Screen.Support.route)
+                    navController.navigate(Screen.Support.route){
+                        popUpTo(navController.graph.startDestinationId)
+                        launchSingleTop = true
+                    }
                 }
-                .padding(16.dp),
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Medium,
-            color = Color.Black
         )
     }
 }
+         

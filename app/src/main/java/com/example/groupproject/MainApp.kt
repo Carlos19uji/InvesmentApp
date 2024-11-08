@@ -23,37 +23,24 @@ fun MainApp( auth: FirebaseAuth,
              signInWithGoogle: () -> Unit,
              createAccountWithGoogle: (String) -> Unit) {
 
+    val currentUser = auth.currentUser
+    val currentAdminId = currentUser?.uid?:""
     val navController = rememberNavController()
     val isUserLoggedIn = remember { mutableStateOf(false) }
-
-    val drawerState = rememberDrawerState(DrawerValue.Closed)
-    val scope = rememberCoroutineScope()
     val isAdminUser = remember { mutableStateOf(false) }
+    val selectedClientIndex = remember { mutableStateOf<Int?>(null) }
 
-    ModalNavigationDrawer(
-        drawerState = drawerState,
-        drawerContent = {
-            if (navController.currentDestination?.route in listOf(
-                    Screen.CorrectLogIn.route,
-                    Screen.Crypto.route,
-                    Screen.Assets.route,
-                    Screen.Portfolio.route
-                )
-            ) {
-                DrawerContent(navController, scope, drawerState)
-            }
-        }
-    ) {
 
-        Scaffold(
+    Scaffold(
             topBar = {
-                val currentScreen =
-                    navController.currentBackStackEntryAsState().value?.destination?.route
+                val currentScreen = navController.currentBackStackEntryAsState().value?.destination?.route
                 if (currentScreen in listOf(
                         Screen.Login.route,
                         Screen.CreateAccount.route,
                         Screen.Password.route,
-                        Screen.Buy.route
+                        Screen.Buy.route,
+                        Screen.Support.route,
+                        Screen.AddClient.route
                     )
                 ) {
                     val title = when (currentScreen) {
@@ -61,6 +48,8 @@ fun MainApp( auth: FirebaseAuth,
                         Screen.CreateAccount.route -> "Register"
                         Screen.Password.route -> "Forgot Password"
                         Screen.Buy.route -> "Buy"
+                        Screen.Support.route -> "Support"
+                        Screen.AddClient.route -> "Add Client"
                         else -> ""
                     }
                     TopNavigationBar(onBackClick = { navController.popBackStack() }, title = title)
@@ -69,15 +58,24 @@ fun MainApp( auth: FirebaseAuth,
                         Screen.CorrectLogIn.route,
                         Screen.Crypto.route,
                         Screen.Assets.route,
-                        Screen.Portfolio.route
+                        Screen.Portfolio.route,
+                        Screen.ClientDetails.route
                     )
                 ) {
-                    TopNavigationBar2(onMenuClick = { scope.launch { drawerState.open() } })
+                    TopNavigationBar2(navController, isAdminUser.value)
                 }
             },
             bottomBar = {
-                if (isUserLoggedIn.value) {
-                    BottomNavigationBar(navController)
+                val currentScreen = navController.currentBackStackEntryAsState().value?.destination?.route
+                if (currentScreen in listOf(
+                    Screen.CorrectLogIn.route,
+                    Screen.Assets.route,
+                    Screen.Crypto.route,
+                    Screen.Portfolio.route,
+                    Screen.ClientDetails.route
+                    )
+                ) {
+                    BottomNavigationBar(navController, isAdminUser = isAdminUser.value, selectedClientIndex= selectedClientIndex.value)
                 }
             }
         ) { innerPadding ->
@@ -143,7 +141,10 @@ fun MainApp( auth: FirebaseAuth,
                     }
                 }
                 composable(Screen.FundManagerClients.route) {
-                    FundManagerClientsScreen(navController)
+                    FundManagerClientsScreen(
+                        navController,
+                        selectedClientIndex,
+                        currentAdminId = currentAdminId)
                 }
                 composable(Screen.ClientDetails.route) { backStackEntry ->
                     val clientIndex = backStackEntry.arguments?.getString("clientIndex")?.toIntOrNull()
@@ -155,7 +156,14 @@ fun MainApp( auth: FirebaseAuth,
                         )
                     }
                 }
+                composable(Screen.AddClient.route) {
+                    AddClient(
+                        onForgotPasswordClick = { navController.navigate(Screen.Password.route) },
+                        navController = navController,
+                        auth = auth,
+                        currentAdminId = currentAdminId)
+                }
             }
         }
-    }
+
 }

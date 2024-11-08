@@ -396,7 +396,11 @@ fun support(navController: NavController) {
     val emailState = remember { mutableStateOf("") }
     val message = remember { mutableStateOf("") }
     Column(
-
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
         email(emailState)
         Spacer(modifier = Modifier.height(16.dp))
@@ -408,12 +412,13 @@ fun support(navController: NavController) {
             value = message.value,
             onValueChange = { message.value = it },
             modifier = Modifier
-                .width(300.dp)
+                .width(350.dp)
+                .height(200.dp)
                 .padding(vertical = 8.dp)
                 .background(Color.White, RoundedCornerShape(8.dp))
                 .padding(16.dp),
             decorationBox = { innerTextField ->
-                if (message.value.isEmpty()) Text(text = "You do not put any message", color = Color.LightGray)
+                if (message.value.isEmpty()) Text(text = "You do not put any message", color = Color.Gray)
                 innerTextField()
             }
         )

@@ -41,23 +41,24 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.firestore.FirebaseFirestore
 
-sealed class Screen(val route : String, val title: String){
-    object Home : Screen("home_screen", "Home")
-    object Login : Screen("login_screen", "Log in")
-    object CreateAccount : Screen("create_account_screen", "Register")
-    object Password : Screen("password_screen", "Forgot Password")
-    object Crypto : Screen("crypto_screen", "")
-    object Portfolio : Screen("portfolio_screen", "")
-    object Assets : Screen("assets_screen", "")
-    object CorrectLogIn : Screen("correct_lon_in", "")
-    object Support : Screen("support", "")
-    object FundManagerClients : Screen("fund_manager_clients", "My Clients")
-    object ClientDetails : Screen("client_detail/{clientIndex}", "Client Details") {
+sealed class Screen(val route : String){
+    object Home : Screen("home_screen")
+    object Login : Screen("login_screen")
+    object CreateAccount : Screen("create_account_screen")
+    object Password : Screen("password_screen")
+    object Crypto : Screen("crypto_screen")
+    object Portfolio : Screen("portfolio_screen")
+    object Assets : Screen("assets_screen")
+    object CorrectLogIn : Screen("correct_lon_in")
+    object Support : Screen("support")
+    object FundManagerClients : Screen("fund_manager_clients")
+    object AddClient : Screen("add_client")
+    object ClientDetails : Screen("client_details/{clientIndex}") {
         fun createRoute(clientIndex: Int): String{
-            return "clientDetails/$clientIndex"
+            return "client_details/$clientIndex"
         }
     }
-    object Buy : Screen("buy_screen/{index}", "Buy") {
+    object Buy : Screen("buy_screen/{index}") {
         fun createRoute(index: Int): String {
             return "buy_screen/$index"
         }
@@ -146,15 +147,26 @@ class MainActivity : ComponentActivity() {
 
 
 fun checkUserRol(userId: String, navController: NavController) {
-    val user = FirebaseFirestore.getInstance().collection("users").document(userId)
-    user.get().addOnCompleteListener { document ->
+    val db = FirebaseFirestore.getInstance()
+    val userDoc = db.collection("users").document(userId)
+
+    userDoc.get().addOnCompleteListener { document ->
         if (document.isSuccessful && document.result != null) {
             val role = document.result?.getString("role")
             Log.d("checkUserRol", "User role fetched: $role")
+
             if (role == "Fund Administrator") {
+                val fundAdminRef = db.collection("fundAdministrators").document(userId)
+                fundAdminRef.collection("clients").get().addOnSuccessListener { snapshot ->
+                    if (snapshot.isEmpty){
+                        Log.d("checkUserRol", "Clients collection is empty, ready to add clients.")
+                    }
+                }.addOnFailureListener { e ->
+                        Log.e("checkUserRol", "Error creating clients collection", e)
+                }
                 Log.d("checkUserRol", "Navigating to FundManagerClients")
-                navController.navigate(Screen.FundManagerClients.route){
-                    popUpTo(Screen.Login.route){inclusive = true}
+                navController.navigate(Screen.FundManagerClients.route) {
+                    popUpTo(Screen.Login.route) { inclusive = true }
                 }
             }else{
                 Log.d("checkUserRol", "Navigating to CorrectLogIn")
