@@ -186,3 +186,173 @@ fun buy_screen(Name: String, Price: Double, Image: Int, Percentage: Double){
         }
     }
 }
+
+
+@Composable
+fun sell_screen(Name: String, Price: Double, Image: Int, Percentage: Double, quantity: Int){
+
+    var quantityToSell by remember { mutableStateOf(1) }
+    var totalPrice by remember { mutableStateOf(0.0) }
+
+    LaunchedEffect(quantityToSell) {
+        totalPrice = Price * quantityToSell
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Gray)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            modifier = Modifier
+                .height(500.dp)
+                .width(400.dp)
+                .background(Color.Black, RoundedCornerShape(16.dp))
+                .clip(RoundedCornerShape(16.dp))
+                .padding(16.dp)
+        ) {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
+
+                Text(
+                    text = "Sell $Name",
+                    fontSize = 24.sp,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                )
+
+                Spacer(modifier = Modifier.width(16.dp))
+                if (quantity > 1) {
+                    Text(
+                        text = "You have ${quantity} units",
+                        color = Color.White,
+                        fontSize = 20.sp, fontWeight = FontWeight.Bold,
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                    )
+                }else{
+                    Text(
+                        text = "You have ${quantity} unit",
+                        color = Color.White,
+                        fontSize = 20.sp, fontWeight = FontWeight.Bold,
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                    )
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Row(
+                    horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Image(
+                        painter = painterResource(id = Image),
+                        contentDescription = Name,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(100.dp)
+                            .width(80.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Row(
+                    horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "Value per unit: \$${Price}",
+                        color = Color.White,
+                        fontSize = 18.sp
+                    )
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Text(
+                        text = "${"%.2f" .format(Percentage)}%",
+                        color = if (Percentage >= 0) Color.Green else Color.Red,
+                        fontSize = 18.sp
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .background(Color.White, CircleShape)
+                            .clickable { if (quantityToSell >= 1) quantityToSell -= 1 },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "-",
+                            color = Color.Black,
+                            fontSize = 24.sp
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Text(
+                        text = "$quantityToSell",
+                        color = Color.White,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    Spacer(modifier = Modifier.width(16.dp))
+
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .background(Color.White, CircleShape)
+                            .clickable { if (quantityToSell < quantity) quantityToSell += 1 },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "+",
+                            color = Color.Black,
+                            fontSize = 24.sp
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(16.dp))
+
+                    Text(
+                        text = "Total: \$${"%.2f".format(totalPrice)}",
+                        color = Color.White,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(32.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(8.dp)
+                ) {
+                    Button(
+                        onClick = {},
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Text(
+                            text = "Sell",
+                            color = Color.Black,
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
+    }
+}

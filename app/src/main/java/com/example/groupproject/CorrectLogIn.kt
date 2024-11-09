@@ -1,5 +1,6 @@
 package com.example.groupproject
 
+import android.widget.Space
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -47,6 +48,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 
 data class Item(val name: String, val image: Int, val price: Double, val percentangeChange : Double, val type: String)
+data class PortfolioItem(val item: Item, val quantity: Int)
 
 val items = listOf(
     Item("Bitcoin", R.drawable.bitcoin, 38000.0, 3.5, "crypto"),
@@ -57,6 +59,11 @@ val items = listOf(
     Item("Tesla", R.drawable.tesla, 720.0, -3.8, "stock"),
     Item("Amazon", R.drawable.amazon, 3500.0, 1.1, "stock"),
     Item("Google", R.drawable.google, 2800.0, -0.6, "stock"),
+)
+val portfolioItems = listOf(
+    PortfolioItem( Item("Bitcoin", R.drawable.bitcoin, 38000.0, 3.5, "crypto"), 2),
+    PortfolioItem(Item("Apple", R.drawable.apple, 150.0, 2.5, "stock"),1),
+    PortfolioItem(Item("Tesla", R.drawable.tesla, 720.0, -3.8, "stock"),10)
 )
 
 
@@ -345,51 +352,161 @@ fun CryptoRow(crypto: Item, navController: NavController, index: Int){
 }
 
 @Composable
-fun portfolio(){
-    Column(
-        Modifier.fillMaxSize().
-        background(Color.Gray),
-        verticalArrangement = Arrangement.Center,
+fun portfolio(navController: NavController){
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Gray),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Box(
-            Modifier.width(300.dp).height(500.dp)
-                .background(Color.Black,RoundedCornerShape(16.dp))
-                .clip(RoundedCornerShape(16.dp))
-        ){
-            Column(
-                Modifier.fillMaxSize()
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally
+        item {
+            HomeSummary()
+            Spacer(modifier = Modifier.height(32.dp))
+        }
+
+        item {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp)
             ) {
-                Text(text = "Total Assests", color = Color.White)
+                Text(
+                    text = "Cryptos",
+                    color = Color.White,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(start = 16.dp)
+                )
+            }
+        }
 
-                Text(text = "$150,257.98", color = Color.White)
+        itemsIndexed(portfolioItems.filter { it.item.type == "crypto" }) { index, item ->
+            val originalIndex = portfolioItems.indexOf(item)
+            Spacer(modifier = Modifier.height(16.dp))
+            portfolioItem(item = item, navController = navController, index = originalIndex)
+        }
 
-                Spacer(modifier = Modifier.height(60.dp))
+        item {
+            Spacer(modifier = Modifier.height(32.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp)
+            ) {
+                Text(
+                    text = "Stocks",
+                    color = Color.White,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(start = 16.dp)
+                )
+            }
+        }
 
-                Text("Distribution", color = Color.White)
+        itemsIndexed(portfolioItems.filter { it.item.type == "stock" }) { index, item ->
+            val originalIndex = portfolioItems.indexOf(item)
+            Spacer(modifier = Modifier.height(16.dp))
+            portfolioItem(item = item, navController = navController, index = originalIndex)
+        }
 
-                Row(
+        item {
+            Spacer(modifier = Modifier.height(16.dp)) // Espacio al final
+        }
+    }
+}
 
-                ) {
-                    Text("Stocks", color = Color.White)
-                    Spacer(modifier = Modifier.width(25.dp))
-                    Text("$85,250.90", color = Color.White)
+
+@Composable
+fun portfolioItem(item: PortfolioItem, navController: NavController, index: Int){
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(color = Color.Black)
+            .padding(8.dp)
+    ) {
+        Image(
+            painter = painterResource(id = item.item.image),
+            contentDescription = item.item.name,
+            modifier = Modifier
+                .weight(1f)
+                .height(100.dp)
+                .width(80.dp)
+        )
+        Column(
+            modifier = Modifier
+                .weight(2f)
+                .padding(start = 16.dp)
+        ) {
+            Row() {
+                Text(
+                    text = item.item.name,
+                    color = Color.White,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.width(16.dp))
+                if (item.quantity > 1) {
+                    Text(
+                        text = "${item.quantity} units",
+                        color = Color.White,
+                        fontSize = 20.sp, fontWeight = FontWeight.Bold
+                    )
+                }else{
+                    Text(
+                        text = "${item.quantity} unit",
+                        color = Color.White,
+                        fontSize = 20.sp, fontWeight = FontWeight.Bold
+                    )
                 }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
 
-                Row(
+            Text(
+                text = "Price: \$${item.item.price}",
+                color = Color.White,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Medium
+            )
 
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Change: ${item.item.percentangeChange}%",
+                color = if (item.item.percentangeChange >= 0) Color.Green else Color.Red,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+            Row() {
+                Button(
+                    onClick = { navController.navigate(Screen.Buy.createRoute(index)) },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Green), // Fondo negro
+                    shape = RoundedCornerShape(16.dp)
                 ) {
-                    Text("Crypto", color = Color.White)
-                    Spacer(modifier = Modifier.width(25.dp))
-                    Text("62,054.27", color = Color.White)
+                    Text(
+                        text = "Buy",
+                        color = Color.Black,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Button(
+                    onClick = { navController.navigate(Screen.Sell.createRoute(index)) },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Text(
+                        text = "Sell",
+                        color = Color.Black,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
         }
     }
 }
+
 
 @Composable
 fun support(navController: NavController) {

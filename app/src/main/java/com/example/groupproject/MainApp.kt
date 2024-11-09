@@ -1,11 +1,13 @@
 package com.example.groupproject
 
+import android.util.Log
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -15,6 +17,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
 
 
@@ -29,7 +32,35 @@ fun MainApp( auth: FirebaseAuth,
     val isUserLoggedIn = remember { mutableStateOf(false) }
     val isAdminUser = remember { mutableStateOf(false) }
     val selectedClientIndex = remember { mutableStateOf<Int?>(null) }
+    val clients = remember { mutableStateOf<List<Client>>(emptyList()) }
 
+    LaunchedEffect(currentAdminId) {
+        if (currentAdminId.isNotEmpty()) {
+            try {
+                val db = FirebaseFirestore.getInstance()
+                db.collection("fundAdministrators")
+                    .document(currentAdminId)
+                    .collection("clients")
+                    .get()
+                    .addOnSuccessListener { querySnapshot ->
+                        clients.value = querySnapshot.documents.mapNotNull { document ->
+                            val clientId = document.getString("clientId")
+                            val clientName = document.getString("clientName")
+                            if (clientId != null && clientName != null) {
+                                Client(clientId, clientName)
+                            } else {
+                                null
+                            }
+                        }
+                    }
+                    .addOnFailureListener { e ->
+                        Log.e("Firestore", "Error fetching clients: ${e.message}")
+                    }
+            } catch (e: Exception) {
+                Log.e("Firestore", "Error: ${e.message}")
+            }
+        }
+    }
 
     Scaffold(
             topBar = {
@@ -40,7 +71,8 @@ fun MainApp( auth: FirebaseAuth,
                         Screen.Password.route,
                         Screen.Buy.route,
                         Screen.Support.route,
-                        Screen.AddClient.route
+                        Screen.AddClient.route,
+                        Screen.Sell.route
                     )
                 ) {
                     val title = when (currentScreen) {
@@ -50,6 +82,7 @@ fun MainApp( auth: FirebaseAuth,
                         Screen.Buy.route -> "Buy"
                         Screen.Support.route -> "Support"
                         Screen.AddClient.route -> "Add Client"
+                        Screen.Sell.route -> "Sell"
                         else -> ""
                     }
                     TopNavigationBar(onBackClick = { navController.popBackStack() }, title = title)
@@ -83,7 +116,9 @@ fun MainApp( auth: FirebaseAuth,
                 navController = navController,
                 startDestination = if (isUserLoggedIn.value) {
                     if (isAdminUser.value) Screen.CorrectLogIn.route else Screen.FundManagerClients.route
-                } else Screen.Home.route,
+                } else {
+                    Screen.CorrectLogIn.route
+                },
                 modifier = Modifier.padding(innerPadding)
             ) {
                 composable(Screen.Home.route) {
@@ -106,7 +141,6 @@ fun MainApp( auth: FirebaseAuth,
                         navController = navController,
                         auth = auth,
                         createAccountWithGoogle = createAccountWithGoogle,
-                        signInWithGoogle = signInWithGoogle
                     )
                 }
                 composable(Screen.Password.route) {
@@ -120,7 +154,7 @@ fun MainApp( auth: FirebaseAuth,
                     crypto(navController = navController)
                 }
                 composable(Screen.Portfolio.route) {
-                    portfolio()
+                    portfolio(navController)
                 }
                 composable(Screen.Assets.route) {
                     assests(navController = navController)
@@ -131,12 +165,25 @@ fun MainApp( auth: FirebaseAuth,
                 composable(Screen.Buy.route) { backStackEntry ->
                     val index = backStackEntry.arguments?.getString("index")?.toIntOrNull()
                     index?.let {
-                        val item = items[index]
+                        val item = portfolioItems[index]
                         buy_screen(
-                            Name = item.name,
-                            Price = item.price,
-                            Image = item.image,
-                            Percentage = item.percentangeChange
+                            Name = item.item.name,
+                            Price = item.item.price,
+                            Image = item.item.image,
+                            Percentage = item.item.percentangeChange
+                        )
+                    }
+                }
+                composable(Screen.Sell.route) { backStackEntry ->
+                    val index = backStackEntry.arguments?.getString("index")?.toIntOrNull()
+                    index?.let {
+                        val item = portfolioItems[index]
+                        sell_screen(
+                            Name = item.item.name,
+                            Price = item.item.price,
+                            Image = item.item.image,
+                            Percentage = item.item.percentangeChange,
+                            quantity = item.quantity
                         )
                     }
                 }
@@ -149,11 +196,12 @@ fun MainApp( auth: FirebaseAuth,
                 composable(Screen.ClientDetails.route) { backStackEntry ->
                     val clientIndex = backStackEntry.arguments?.getString("clientIndex")?.toIntOrNull()
                     clientIndex?.let {
-                        val client = clients[it]
-                        ClientDetailScreen(
-                            clientName = client.name,
-                            clientId = client.id
-                        )
+                        if (it >= 0 && it < clientes.size) {
+                            val client = clientes[it]
+                            ClientDetailScreen(
+                                client = client
+                            )
+                        }
                     }
                 }
                 composable(Screen.AddClient.route) {

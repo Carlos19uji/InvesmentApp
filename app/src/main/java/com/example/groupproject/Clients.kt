@@ -23,24 +23,21 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.NavHostController
 
-data class Client(val name: String, val id: String)
-
-val clients = listOf(
+val clientes = listOf(
     Client("Client A", "ID123"),
     Client("Cliente B", "ID456"),
     Client("Cliente C", "ID789")
 )
-
-
 @Composable
-fun ClientDetailScreen(clientId: String, clientName: String) {
+fun ClientDetailScreen(client: Client) {
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Gray)
     ) {
         Text(
-            text = "Client: $clientName (ID: $clientId)",
+            text = "Client: ${client.name} (ID: ${client.id})",
             color = Color.White,
             fontSize = 24.sp,
             fontWeight = FontWeight.Bold,
@@ -59,7 +56,7 @@ fun ClientDetailScreen(clientId: String, clientName: String) {
 }
 @Composable
 fun ClientPortfolioScreen(navController: NavHostController, clientId: String, clientName: String) {
-    Column (
+    Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Gray)
@@ -77,56 +74,7 @@ fun ClientPortfolioScreen(navController: NavHostController, clientId: String, cl
                 .weight(1f)
                 .padding(16.dp)
         ) {
-            portfolio()
-        }
-    }
-}
-
-@Composable
-fun ClientAssetsScreen(navController: NavHostController, clientId: String, clientName: String) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Gray)
-    ) {
-        // Mostrar el nombre y el ID del cliente
-        Text(
-            text = "Cliente: $clientName (ID: $clientId)",
-            color = Color.White,
-            fontSize = 20.sp,
-            modifier = Modifier.padding(16.dp)
-        )
-
-        // Mostrar el contenido principal de la pantalla Assets
-        Column(
-            modifier = Modifier
-                .weight(1f)  // Ocupa el espacio restante
-                .padding(16.dp)
-        ) {
-            assests(navController = navController)  // Reutilizamos la función assets
-        }
-    }
-}
-
-@Composable
-fun ClientCryptoScreen(navController: NavHostController, clientId: String, clientName: String) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Gray)
-    ) {
-        Text(
-            text = "Cliente: $clientName (ID: $clientId)",
-            color = Color.White,
-            fontSize = 20.sp,
-            modifier = Modifier.padding(16.dp)
-        )
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .padding(16.dp)
-        ) {
-            crypto(navController)
+            portfolio(navController)
         }
     }
 }

@@ -21,10 +21,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -45,13 +47,45 @@ import androidx.navigation.navArgument
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 
+data class Client(val name: String, val id: String)
+
 @Composable
 fun FundManagerClientsScreen(
     navController: NavController,
     selectedClientIndex: MutableState<Int?>,
     currentAdminId: String){
 
+    val clients = remember { mutableStateOf<List<Client>>(emptyList()) }
 
+    LaunchedEffect(currentAdminId) {
+        if (currentAdminId.isNotEmpty()) {
+            try {
+                val db = FirebaseFirestore.getInstance()
+                db.collection("fundAdministrators")
+                    .document(currentAdminId)
+                    .collection("clients")
+                    .get()
+                    .addOnSuccessListener { querySnapshot ->
+                        clients.value = querySnapshot.documents.mapNotNull { document ->
+                            val clientId = document.getString("clientId")
+                            val clientName = document.getString("clientName")
+                            if (clientId != null && clientName != null) {
+                                Client(clientId, clientName)
+                            } else {
+                                null
+                            }
+                        }
+                    }
+                    .addOnFailureListener { e ->
+                        Log.e("Firestore", "Error fetching clients: ${e.message}")
+                    }
+            } catch (e: Exception) {
+                Log.e("Firestore", "Error: ${e.message}")
+            }
+        } else {
+            Log.w("FundManagerClientsScreen", "currentAdminId is empty or invalid")
+        }
+    }
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -67,16 +101,21 @@ fun FundManagerClientsScreen(
         )
         Spacer(modifier = Modifier.height(16.dp))
 
-        LazyColumn(modifier = Modifier
-            .weight(1f)
-            .fillMaxWidth()) {
-            itemsIndexed(clients){ index, client ->
-                Spacer(modifier = Modifier.height(16.dp))
-                ClientRow(client = client, navController = navController, clientIndex = index){
-                    selectedClientIndex.value = index
+
+        LazyColumn(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+            ) {
+                itemsIndexed(clientes) { index, client ->
+                    Spacer(modifier = Modifier.height(16.dp))
+                    ClientRow(client = client,
+                        onClick = {selectedClientIndex.value = index
+                        navController.navigate(Screen.ClientDetails.createRoute(index))
+                        }
+                    )
                 }
             }
-        }
         Spacer(modifier = Modifier.height(36.dp))
         Button(
             onClick = {navController.navigate(Screen.AddClient.route)},
@@ -91,15 +130,14 @@ fun FundManagerClientsScreen(
 }
 
 @Composable
-fun ClientRow(client: Client, navController: NavController, clientIndex: Int, onClick: () -> Unit){
+fun ClientRow(client: Client, onClick: () -> Unit){
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .background(Color.White)
-            .clickable {
-                onClick()
-                navController.navigate(Screen.ClientDetails.createRoute(clientIndex))}
+            .clickable { onClick() }
             .padding(8.dp)
     ) {
         Text(text = client.name, fontSize = 20.sp, fontWeight = FontWeight.Bold)

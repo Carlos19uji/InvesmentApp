@@ -137,21 +137,22 @@ fun LoginScreen(
         Spacer(modifier = Modifier.height(30.dp))
         Button(
             onClick = {
-                auth.signInWithEmailAndPassword(emailState.value, passwordState.value)
-                    .addOnCompleteListener { task ->
-                        if (task.isSuccessful) {
-                            onUserLoggedIn(true)
-                            val userId = auth.currentUser?.uid
-                            userId?.let {
-                                checkUserRol(it, navController)
+                if(emailState.value.isNotEmpty() && passwordState.value.isNotEmpty()) {
+                    auth.signInWithEmailAndPassword(emailState.value, passwordState.value)
+                        .addOnCompleteListener { task ->
+                            if (task.isSuccessful) {
+                                onUserLoggedIn(true)
+                                val userId = auth.currentUser?.uid
+                                userId?.let {
+                                    checkUserRol(it, navController)
+                                }
+                            } else {
+                                Toast.makeText(context, "Password or e-mail incorrect: ${task.exception?.message}", Toast.LENGTH_LONG).show()
                             }
-                        } else {
-                            Toast.makeText(
-                                context, "Password or e-mail incorrect: ${task.exception?.message}",
-                                Toast.LENGTH_LONG
-                            ).show()
                         }
-                    }
+                }else{
+                    Toast.makeText(context, "Pleas write your e-mail and password", Toast.LENGTH_LONG).show()
+                }
             },
             colors = ButtonDefaults.buttonColors(containerColor = Color.White)
         ) {
@@ -257,7 +258,6 @@ fun create_account(
     navController: NavController,
     auth: FirebaseAuth,
     createAccountWithGoogle: (String) -> Unit,
-    signInWithGoogle: () -> Unit
 ) {
 
     var emailState  = remember { mutableStateOf("") }
@@ -277,7 +277,13 @@ fun create_account(
         Spacer(modifier = Modifier.height(35.dp))
 
         log_in_facebook()
-        log_in_google(signInWithGoogle)
+        create_with_google(){
+            if (selectedRole.isNotEmpty()){
+                createAccountWithGoogle(selectedRole)
+            }else{
+                roleError = true
+            }
+        }
 
 
         Spacer(modifier = Modifier.height(30.dp))
@@ -330,24 +336,30 @@ fun create_account(
                 if (selectedRole.isEmpty()) {
                     roleError = true
                 }else{
-                    auth.createUserWithEmailAndPassword(emailState.value, passwordState.value)
-                        .addOnCompleteListener { task ->
-                            if(task.isSuccessful){
-                                val userId = task.result?.user?.uid
-                                if (userId != null){
-                                    val db = FirebaseFirestore.getInstance()
-                                    val userDoc = db.collection("users").document(userId)
-                                    val userData = hashMapOf("role" to selectedRole)
+                        if(emailState.value.isNotEmpty() && passwordState.value.isNotEmpty()) {
+                            auth.createUserWithEmailAndPassword(
+                                emailState.value,
+                                passwordState.value
+                            )
+                                .addOnCompleteListener { task ->
+                                    if (task.isSuccessful) {
+                                        val userId = task.result?.user?.uid
+                                        if (userId != null) {
+                                            val db = FirebaseFirestore.getInstance()
+                                            val userDoc = db.collection("users").document(userId)
+                                            val userData = hashMapOf("role" to selectedRole)
 
-                                    userDoc.set(userData).addOnSuccessListener {
-                                        checkUserRol(userId, navController)
-                                    }.addOnFailureListener{ e ->
-                                        errorMessage.value = "Error saving user data: ${e.message}"
+                                            userDoc.set(userData).addOnSuccessListener {
+                                                checkUserRol(userId, navController)
+                                            }.addOnFailureListener { e ->
+                                                errorMessage.value =
+                                                    "Error saving user data: ${e.message}"
+                                            }
+                                        }
+                                    } else {
+                                        errorMessage.value = "Error: ${task.exception?.message}"
                                     }
                                 }
-                            }else{
-                                errorMessage.value = "Error: ${task.exception?.message}"
-                            }
                         }
                 }},
             colors = ButtonDefaults.buttonColors(containerColor = Color.White)

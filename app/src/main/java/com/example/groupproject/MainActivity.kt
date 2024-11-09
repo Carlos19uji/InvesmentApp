@@ -49,7 +49,7 @@ sealed class Screen(val route : String){
     object Crypto : Screen("crypto_screen")
     object Portfolio : Screen("portfolio_screen")
     object Assets : Screen("assets_screen")
-    object CorrectLogIn : Screen("correct_lon_in")
+    object CorrectLogIn : Screen("correct_login_in")
     object Support : Screen("support")
     object FundManagerClients : Screen("fund_manager_clients")
     object AddClient : Screen("add_client")
@@ -63,12 +63,18 @@ sealed class Screen(val route : String){
             return "buy_screen/$index"
         }
     }
+    object Sell : Screen("sell_screen/{index}") {
+        fun createRoute(index: Int): String {
+            return "sell_screen/$index"
+        }
+    }
 }
 
 class MainActivity : ComponentActivity() {
     private lateinit var auth : FirebaseAuth
     private lateinit var googleSignInClient : GoogleSignInClient
     private lateinit var navController : NavController
+    private var selectedRoleForAccountCreation: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -80,7 +86,6 @@ class MainActivity : ComponentActivity() {
             .build()
         googleSignInClient = GoogleSignIn.getClient(this, gso)
 
-        enableEdgeToEdge()
         setContent {
             GroupProjectTheme {
                 navController = rememberNavController()
@@ -101,17 +106,33 @@ class MainActivity : ComponentActivity() {
 
     private fun firebaseAuthWithGoogle(idToken: String) {
         val credential = GoogleAuthProvider.getCredential(idToken, null)
-        auth.signInWithCredential(credential).addOnCompleteListener(this) { task ->
-            if (task.isSuccessful) {
-                val userId = auth.currentUser?.uid
-                if (userId != null){
-                    checkUserRol(userId, navController)
-                }else {
-                    Toast.makeText(this, "Signed in with Google", Toast.LENGTH_SHORT).show()
+
+        try {
+            auth.signInWithCredential(credential).addOnCompleteListener(this) { task ->
+                if (task.isSuccessful) {
+                    val userId = auth.currentUser?.uid
+                    if (userId != null) {
+                        if (selectedRoleForAccountCreation != null) {
+                            selectedRoleForAccountCreation?.let { role ->
+                                saveUserRole(userId, role)
+                                selectedRoleForAccountCreation = null
+                            }
+                        }
+                        checkUserRol(userId, navController)
+                    } else {
+                        Toast.makeText(
+                            this,
+                            "Authentication failed: Unable to retrieve user ID.",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                } else {
+                    Toast.makeText(this, "Authentication Failed.", Toast.LENGTH_SHORT).show()
                 }
-            } else {
-                Toast.makeText(this, "Authentication Failed.", Toast.LENGTH_SHORT).show()
             }
+        }catch (e: Exception){
+            Log.e("firebaseAuthWithGoogle", "Error during Google sign-in", e)
+            Toast.makeText(this, "Google sign-in failed: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -121,27 +142,24 @@ class MainActivity : ComponentActivity() {
     }
 
     fun createAccountWithGoogle(selectedRole: String) {
-        val idToken = ""
-        val credential = GoogleAuthProvider.getCredential(idToken, null)
+        selectedRoleForAccountCreation = selectedRole  // Guardar el rol seleccionado
+        val signInIntent = googleSignInClient.signInIntent
+        googleSignInLauncher.launch(signInIntent)
+    }
 
-        auth.signInWithCredential(credential).addOnCompleteListener(this) { task ->
-            if (task.isSuccessful) {
-                val userId = auth.currentUser?.uid
-                if (userId != null) {
-                    val db = FirebaseFirestore.getInstance()
-                    val userDoc = db.collection("users").document(userId)
-                    val userData = hashMapOf("role" to selectedRole)
+    private fun saveUserRole(userId: String, selectedRole: String) {
+        val db = FirebaseFirestore.getInstance()
+        val userDoc = db.collection("users").document(userId)
+        val userData = hashMapOf("role" to selectedRole)
 
-                    userDoc.set(userData).addOnSuccessListener {
-                        checkUserRol(userId, navController)
-                    }.addOnFailureListener { e ->
-                        Toast.makeText(this, "Error saving user role: ${e.message}", Toast.LENGTH_SHORT).show()
-                    }
-                }
-            } else {
-                Toast.makeText(this, "Authentication Failed.", Toast.LENGTH_SHORT).show()
+        userDoc.set(userData)
+            .addOnSuccessListener {
+                Log.d("saveUserRole", "User role saved successfully")
             }
-        }
+            .addOnFailureListener { e ->
+                Log.e("saveUserRole", "Error saving user role: ${e.message}")
+                Toast.makeText(this, "Error saving user role: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
     }
 }
 
@@ -176,6 +194,7 @@ fun checkUserRol(userId: String, navController: NavController) {
             }
         } else {
             Log.e("Firestore", "Error getting user role or document doesn't exist")
+            Toast.makeText(navController.context, "Error retrieving user role", Toast.LENGTH_SHORT).show()
         }
     }.addOnFailureListener { e ->
         Log.e("Firestore", "Error getting user role", e)
@@ -227,7 +246,7 @@ fun log_in_facebook(){
 @Composable
 fun log_in_google(signInWithGoogle: () -> Unit){
         Button(
-            onClick = { signInWithGoogle()},
+            onClick = { signInWithGoogle() },
             colors = ButtonDefaults.buttonColors(containerColor = Color.White),
             shape = RoundedCornerShape(50),
             modifier = Modifier
@@ -254,9 +273,9 @@ fun log_in_google(signInWithGoogle: () -> Unit){
 }
 
 @Composable
-fun create_with_google(createAccount: () -> Unit){
+fun create_with_google(onGoogleSignInClick: () -> Unit){
     Button(
-        onClick = { createAccount() },
+        onClick = { onGoogleSignInClick() },
         colors = ButtonDefaults.buttonColors(containerColor = Color.White),
         shape = RoundedCornerShape(50),
         modifier = Modifier
