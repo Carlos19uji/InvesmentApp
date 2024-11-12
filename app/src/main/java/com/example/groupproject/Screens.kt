@@ -1,6 +1,5 @@
 package com.example.groupproject
 
-import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -101,7 +100,8 @@ fun LoginScreen(
     navController: NavController,
     auth: FirebaseAuth,
     signInWithGoogle: () -> Unit,
-    onUserLoggedIn: (Boolean) -> Unit) {
+    logInWithFacebook: () -> Unit,
+    AdminUser: (Boolean) -> Unit) {
 
     val emailState = remember { mutableStateOf("") }
     val passwordState = remember { mutableStateOf("") }
@@ -117,7 +117,7 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(35.dp))
 
-        log_in_facebook()
+        log_in_facebook(logInWithFacebook)
         log_in_google(signInWithGoogle)
 
         Spacer(modifier = Modifier.height(30.dp))
@@ -141,7 +141,7 @@ fun LoginScreen(
                     auth.signInWithEmailAndPassword(emailState.value, passwordState.value)
                         .addOnCompleteListener { task ->
                             if (task.isSuccessful) {
-                                onUserLoggedIn(true)
+                                AdminUser(true)
                                 val userId = auth.currentUser?.uid
                                 userId?.let {
                                     checkUserRol(it, navController)
@@ -258,13 +258,13 @@ fun create_account(
     navController: NavController,
     auth: FirebaseAuth,
     createAccountWithGoogle: (String) -> Unit,
+    createAccountWithFacebook: (String) -> Unit
 ) {
 
     var emailState  = remember { mutableStateOf("") }
     var passwordState = remember { mutableStateOf("") }
     val errorMessage = remember { mutableStateOf<String?>(null) }
     var selectedRole by remember { mutableStateOf("") }
-    val context = LocalContext.current
     var roleError by remember { mutableStateOf(false) }
 
     Column(
@@ -276,7 +276,13 @@ fun create_account(
     ) {
         Spacer(modifier = Modifier.height(35.dp))
 
-        log_in_facebook()
+        create_with_facebook() {
+            if (selectedRole.isNotEmpty()) {
+                createAccountWithFacebook(selectedRole)
+            } else {
+                roleError = true
+            }
+        }
         create_with_google(){
             if (selectedRole.isNotEmpty()){
                 createAccountWithGoogle(selectedRole)
@@ -350,6 +356,9 @@ fun create_account(
                                             val userData = hashMapOf("role" to selectedRole)
 
                                             userDoc.set(userData).addOnSuccessListener {
+                                                if (selectedRole == "Normal Client"){
+                                                    createPortfolioForNewUser(userId)
+                                                }
                                                 checkUserRol(userId, navController)
                                             }.addOnFailureListener { e ->
                                                 errorMessage.value =

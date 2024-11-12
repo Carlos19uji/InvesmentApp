@@ -46,22 +46,24 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import java.io.Serializable
 
 data class Client(val name: String, val id: String)
 
 @Composable
 fun FundManagerClientsScreen(
     navController: NavController,
-    selectedClientIndex: MutableState<Int?>,
-    currentAdminId: String){
-
+    auth: FirebaseAuth,
+    selectedClientIndex: Int?,
+    onClientSelected: (Int) -> Unit){
+    val currentAdminId = auth.currentUser?.uid.toString()
     val clients = remember { mutableStateOf<List<Client>>(emptyList()) }
 
     LaunchedEffect(currentAdminId) {
         if (currentAdminId.isNotEmpty()) {
             try {
                 val db = FirebaseFirestore.getInstance()
-                db.collection("fundAdministrators")
+                db.collection("users")
                     .document(currentAdminId)
                     .collection("clients")
                     .get()
@@ -70,7 +72,7 @@ fun FundManagerClientsScreen(
                             val clientId = document.getString("clientId")
                             val clientName = document.getString("clientName")
                             if (clientId != null && clientName != null) {
-                                Client(clientId, clientName)
+                                Client(clientName, clientId)
                             } else {
                                 null
                             }
@@ -107,17 +109,18 @@ fun FundManagerClientsScreen(
                     .weight(1f)
                     .fillMaxWidth()
             ) {
-                itemsIndexed(clientes) { index, client ->
+                itemsIndexed(clients.value) { index, client ->
                     Spacer(modifier = Modifier.height(16.dp))
                     ClientRow(client = client,
-                        onClick = {selectedClientIndex.value = index
-                        navController.navigate(Screen.ClientDetails.createRoute(index))
+                        onClick = { onClientSelected(index)
+                            navController.navigate(Screen.ClientDetails.createRoute(index))
                         }
                     )
                 }
             }
         Spacer(modifier = Modifier.height(36.dp))
         Button(
+
             onClick = {navController.navigate(Screen.AddClient.route)},
             colors = ButtonDefaults.buttonColors(containerColor = Color.Black),
             modifier = Modifier
@@ -128,6 +131,7 @@ fun FundManagerClientsScreen(
         }
     }
 }
+
 
 @Composable
 fun ClientRow(client: Client, onClick: () -> Unit){
@@ -140,9 +144,16 @@ fun ClientRow(client: Client, onClick: () -> Unit){
             .clickable { onClick() }
             .padding(8.dp)
     ) {
-        Text(text = client.name, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-        Spacer(modifier = Modifier.weight(1f))
-        Text(text = client.id, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+        Column(
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(8.dp)
+        ) {
+            Text(text = client.name, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.weight(1f))
+            Text(text = client.id, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+
+        }
     }
 }
 
@@ -150,14 +161,13 @@ fun ClientRow(client: Client, onClick: () -> Unit){
 fun AddClient(
     onForgotPasswordClick: () -> Unit,
     navController: NavController,
-    auth: FirebaseAuth,
-    currentAdminId: String) {
+    auth: FirebaseAuth) {
 
+        val currentAdminId = auth.currentUser?.uid.toString()
         val emailState = remember { mutableStateOf("") }
         val passwordState = remember { mutableStateOf("") }
         val context = LocalContext.current
         val name = remember { mutableStateOf("")  }
-        val db = FirebaseFirestore.getInstance()
 
         Column(
             modifier = Modifier
@@ -252,9 +262,9 @@ fun checkClientRole(
     }
 }
 
-fun addClientToAdmin(adminId: String, clientId: String, clientName: String, context: Context, navController: NavController){
+fun addClientToAdmin(adminId: String, clientId: String, clientName: String, context: Context, navController: NavController) {
     val db = FirebaseFirestore.getInstance()
-    val fundAdminRef = db.collection("fundAdministrators").document(adminId)
+    val fundAdminRef = db.collection("users").document(adminId)
     val clientData = hashMapOf(
         "clientId" to clientId,
         "clientName" to clientName
@@ -270,8 +280,3 @@ fun addClientToAdmin(adminId: String, clientId: String, clientName: String, cont
             Toast.makeText(context, "Error adding client: ${e.message}", Toast.LENGTH_LONG).show()
         }
 }
-
-
-
-
-

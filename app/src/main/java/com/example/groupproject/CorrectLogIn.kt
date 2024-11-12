@@ -1,5 +1,6 @@
 package com.example.groupproject
 
+import android.util.Log
 import android.widget.Space
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -28,7 +29,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -46,9 +49,12 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 
 data class Item(val name: String, val image: Int, val price: Double, val percentangeChange : Double, val type: String)
-data class PortfolioItem(val item: Item, val quantity: Int)
+
+data class PortfolioData(val name: String, val units: Int)
 
 val items = listOf(
     Item("Bitcoin", R.drawable.bitcoin, 38000.0, 3.5, "crypto"),
@@ -59,11 +65,6 @@ val items = listOf(
     Item("Tesla", R.drawable.tesla, 720.0, -3.8, "stock"),
     Item("Amazon", R.drawable.amazon, 3500.0, 1.1, "stock"),
     Item("Google", R.drawable.google, 2800.0, -0.6, "stock"),
-)
-val portfolioItems = listOf(
-    PortfolioItem( Item("Bitcoin", R.drawable.bitcoin, 38000.0, 3.5, "crypto"), 2),
-    PortfolioItem(Item("Apple", R.drawable.apple, 150.0, 2.5, "stock"),1),
-    PortfolioItem(Item("Tesla", R.drawable.tesla, 720.0, -3.8, "stock"),10)
 )
 
 
@@ -353,6 +354,29 @@ fun CryptoRow(crypto: Item, navController: NavController, index: Int){
 
 @Composable
 fun portfolio(navController: NavController){
+    val auth = FirebaseAuth.getInstance().currentUser
+    val db = FirebaseFirestore.getInstance()
+    val portfolioItems = remember{ mutableStateListOf<PortfolioData>() }
+
+    LaunchedEffect(Unit) {
+        auth?.uid?.let { userID ->
+            db.collection("users").document(userID).collection("portfolio")
+                .get()
+                .addOnSuccessListener { snapshot ->
+                    portfolioItems.clear()
+                    for (document in snapshot ){
+                        val name = document.getString("name")?:""
+                        val units = document.getLong("units")?.toInt()?:0
+                        if (name != "crear" ) {
+                            portfolioItems.add(PortfolioData(name, units))
+                        }
+                    }
+
+                }.addOnFailureListener { exception ->
+                    Log.e("Firestore", "Error fetching portfolio", exception)
+                }
+        }
+    }
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -380,8 +404,8 @@ fun portfolio(navController: NavController){
             }
         }
 
-        itemsIndexed(portfolioItems.filter { it.item.type == "crypto" }) { index, item ->
-            val originalIndex = portfolioItems.indexOf(item)
+        itemsIndexed(portfolioItems.filter { item -> item.name in items.filter { it.type == "crypto" }.map { it.name } }) { index, item ->
+            val originalIndex = items.indexOfFirst { it.name == item.name }
             Spacer(modifier = Modifier.height(16.dp))
             portfolioItem(item = item, navController = navController, index = originalIndex)
         }
@@ -403,8 +427,8 @@ fun portfolio(navController: NavController){
             }
         }
 
-        itemsIndexed(portfolioItems.filter { it.item.type == "stock" }) { index, item ->
-            val originalIndex = portfolioItems.indexOf(item)
+        itemsIndexed(portfolioItems.filter { item -> item.name in items.filter { it.type == "stock" }.map { it.name } }) { index, item ->
+            val originalIndex = items.indexOfFirst { it.name == item.name }
             Spacer(modifier = Modifier.height(16.dp))
             portfolioItem(item = item, navController = navController, index = originalIndex)
         }
@@ -417,90 +441,115 @@ fun portfolio(navController: NavController){
 
 
 @Composable
-fun portfolioItem(item: PortfolioItem, navController: NavController, index: Int){
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(color = Color.Black)
-            .padding(8.dp)
-    ) {
-        Image(
-            painter = painterResource(id = item.item.image),
-            contentDescription = item.item.name,
+fun portfolioItem(item: PortfolioData, navController: NavController, index: Int){
+
+    val db = FirebaseFirestore.getInstance()
+    val itemRef = db.collection("items")
+
+    val price = remember { mutableStateOf(0.0) }
+    val percentageChange = remember { mutableStateOf(0.0) }
+
+    LaunchedEffect(item.name) {
+        itemRef.document(item.name).get().addOnCompleteListener { task ->
+            if (task.isSuccessful) {
+                val document = task.result
+                if (document.exists()) {
+                    price.value = document.getDouble("price") ?: 0.0
+                    percentageChange.value = document.getDouble("percentageChange") ?: 0.0
+                }
+            } else {
+                Log.e("Firestore", "Failed to fetch data for ${item.name}")
+            }
+        }
+    }
+
+    val selectedItem = items.find {it.name == item.name}
+
+    if (selectedItem != null){
+        Row(
             modifier = Modifier
-                .weight(1f)
-                .height(100.dp)
-                .width(80.dp)
-        )
-        Column(
-            modifier = Modifier
-                .weight(2f)
-                .padding(start = 16.dp)
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .background(color = Color.Black)
+                .padding(8.dp)
         ) {
-            Row() {
+            Image(
+                painter = painterResource(id = selectedItem.image),
+                contentDescription = selectedItem.name,
+                modifier = Modifier
+                    .weight(1f)
+                    .height(100.dp)
+                    .width(80.dp)
+            )
+            Column(
+                modifier = Modifier
+                    .weight(2f)
+                    .padding(start = 16.dp)
+            ) {
+                Row() {
+                    Text(
+                        text = selectedItem.name,
+                        color = Color.White,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.width(16.dp))
+                    if (item.units > 1) {
+                        Text(
+                            text = "${item.units} units",
+                            color = Color.White,
+                            fontSize = 20.sp, fontWeight = FontWeight.Bold
+                        )
+                    } else {
+                        Text(
+                            text = "${item.units} unit",
+                            color = Color.White,
+                            fontSize = 20.sp, fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+
                 Text(
-                    text = item.item.name,
+                    text = "Price: \$${price.value}",
                     color = Color.White,
-                    fontSize = 20.sp,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Change: ${percentageChange.value}%",
+                    color = if (percentageChange.value >= 0) Color.Green else Color.Red,
+                    fontSize = 16.sp,
                     fontWeight = FontWeight.Bold
                 )
-                Spacer(modifier = Modifier.width(16.dp))
-                if (item.quantity > 1) {
-                    Text(
-                        text = "${item.quantity} units",
-                        color = Color.White,
-                        fontSize = 20.sp, fontWeight = FontWeight.Bold
-                    )
-                }else{
-                    Text(
-                        text = "${item.quantity} unit",
-                        color = Color.White,
-                        fontSize = 20.sp, fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.height(8.dp))
 
-            Text(
-                text = "Price: \$${item.item.price}",
-                color = Color.White,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Medium
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "Change: ${item.item.percentangeChange}%",
-                color = if (item.item.percentangeChange >= 0) Color.Green else Color.Red,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-            Row() {
-                Button(
-                    onClick = { navController.navigate(Screen.Buy.createRoute(index)) },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.Green), // Fondo negro
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Text(
-                        text = "Buy",
-                        color = Color.Black,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-                Spacer(modifier = Modifier.width(16.dp))
-                Button(
-                    onClick = { navController.navigate(Screen.Sell.createRoute(index)) },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Text(
-                        text = "Sell",
-                        color = Color.Black,
-                        fontWeight = FontWeight.Bold
-                    )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row() {
+                    Button(
+                        onClick = { navController.navigate(Screen.Buy.createRoute(index)) },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.Green), // Fondo negro
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Text(
+                            text = "Buy",
+                            color = Color.Black,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Button(
+                        onClick = { navController.navigate(Screen.Sell.createRoute(index)) },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Text(
+                            text = "Sell",
+                            color = Color.Black,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
         }

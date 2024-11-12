@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -12,10 +13,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
@@ -24,21 +27,22 @@ import kotlinx.coroutines.launch
 @Composable
 fun MainApp( auth: FirebaseAuth,
              signInWithGoogle: () -> Unit,
-             createAccountWithGoogle: (String) -> Unit) {
+             createAccountWithGoogle: (String) -> Unit,
+             logInWithFacebook: () -> Unit,
+             createAccountWithFacebook: (String) -> Unit) {
 
-    val currentUser = auth.currentUser
-    val currentAdminId = currentUser?.uid?:""
     val navController = rememberNavController()
     val isUserLoggedIn = remember { mutableStateOf(false) }
     val isAdminUser = remember { mutableStateOf(false) }
     val selectedClientIndex = remember { mutableStateOf<Int?>(null) }
+    val currentAdminId = auth.currentUser?.uid.toString()
     val clients = remember { mutableStateOf<List<Client>>(emptyList()) }
 
     LaunchedEffect(currentAdminId) {
         if (currentAdminId.isNotEmpty()) {
             try {
                 val db = FirebaseFirestore.getInstance()
-                db.collection("fundAdministrators")
+                db.collection("users")
                     .document(currentAdminId)
                     .collection("clients")
                     .get()
@@ -47,7 +51,7 @@ fun MainApp( auth: FirebaseAuth,
                             val clientId = document.getString("clientId")
                             val clientName = document.getString("clientName")
                             if (clientId != null && clientName != null) {
-                                Client(clientId, clientName)
+                                Client(clientName, clientId)
                             } else {
                                 null
                             }
@@ -59,9 +63,10 @@ fun MainApp( auth: FirebaseAuth,
             } catch (e: Exception) {
                 Log.e("Firestore", "Error: ${e.message}")
             }
+        } else {
+            Log.w("FundManagerClientsScreen", "currentAdminId is empty or invalid")
         }
     }
-
     Scaffold(
             topBar = {
                 val currentScreen = navController.currentBackStackEntryAsState().value?.destination?.route
@@ -72,7 +77,7 @@ fun MainApp( auth: FirebaseAuth,
                         Screen.Buy.route,
                         Screen.Support.route,
                         Screen.AddClient.route,
-                        Screen.Sell.route
+                        Screen.Sell.route,
                     )
                 ) {
                     val title = when (currentScreen) {
@@ -92,7 +97,8 @@ fun MainApp( auth: FirebaseAuth,
                         Screen.Crypto.route,
                         Screen.Assets.route,
                         Screen.Portfolio.route,
-                        Screen.ClientDetails.route
+                        Screen.ClientDetails.route,
+                        Screen.ClientPortfolio.route
                     )
                 ) {
                     TopNavigationBar2(navController, isAdminUser.value)
@@ -105,7 +111,8 @@ fun MainApp( auth: FirebaseAuth,
                     Screen.Assets.route,
                     Screen.Crypto.route,
                     Screen.Portfolio.route,
-                    Screen.ClientDetails.route
+                    Screen.ClientDetails.route,
+                    Screen.ClientPortfolio.route
                     )
                 ) {
                     BottomNavigationBar(navController, isAdminUser = isAdminUser.value, selectedClientIndex= selectedClientIndex.value)
@@ -117,7 +124,7 @@ fun MainApp( auth: FirebaseAuth,
                 startDestination = if (isUserLoggedIn.value) {
                     if (isAdminUser.value) Screen.CorrectLogIn.route else Screen.FundManagerClients.route
                 } else {
-                    Screen.CorrectLogIn.route
+                    Screen.Home.route
                 },
                 modifier = Modifier.padding(innerPadding)
             ) {
@@ -130,9 +137,10 @@ fun MainApp( auth: FirebaseAuth,
                         navController = navController,
                         auth = auth,
                         signInWithGoogle = signInWithGoogle,
+                        logInWithFacebook = logInWithFacebook,
                         onCreateAccountClick = { navController.navigate(Screen.CreateAccount.route) },
                         onForgotPasswordClick = { navController.navigate(Screen.Password.route) },
-                        onUserLoggedIn = { isAdminUser.value = it }
+                        AdminUser = { isAdminUser.value = it }
                     )
                 }
                 composable(Screen.CreateAccount.route) {
@@ -141,6 +149,7 @@ fun MainApp( auth: FirebaseAuth,
                         navController = navController,
                         auth = auth,
                         createAccountWithGoogle = createAccountWithGoogle,
+                        createAccountWithFacebook = createAccountWithFacebook
                     )
                 }
                 composable(Screen.Password.route) {
@@ -165,40 +174,54 @@ fun MainApp( auth: FirebaseAuth,
                 composable(Screen.Buy.route) { backStackEntry ->
                     val index = backStackEntry.arguments?.getString("index")?.toIntOrNull()
                     index?.let {
-                        val item = portfolioItems[index]
+                        val item = items[index]
                         buy_screen(
-                            Name = item.item.name,
-                            Price = item.item.price,
-                            Image = item.item.image,
-                            Percentage = item.item.percentangeChange
+                            Name = item.name,
+                            Price = item.price,
+                            Image = item.image,
+                            Percentage = item.percentangeChange,
+                            auth = auth
                         )
                     }
                 }
                 composable(Screen.Sell.route) { backStackEntry ->
                     val index = backStackEntry.arguments?.getString("index")?.toIntOrNull()
                     index?.let {
-                        val item = portfolioItems[index]
+                        val item = items[index]
                         sell_screen(
-                            Name = item.item.name,
-                            Price = item.item.price,
-                            Image = item.item.image,
-                            Percentage = item.item.percentangeChange,
-                            quantity = item.quantity
+                            Name = item.name,
+                            Price = item.price,
+                            Image = item.image,
+                            Percentage = item.percentangeChange,
+                            auth = auth
                         )
                     }
                 }
                 composable(Screen.FundManagerClients.route) {
                     FundManagerClientsScreen(
                         navController,
-                        selectedClientIndex,
-                        currentAdminId = currentAdminId)
+                        auth,
+                        selectedClientIndex = selectedClientIndex.value,
+                        onClientSelected = { index -> selectedClientIndex.value = index})
                 }
                 composable(Screen.ClientDetails.route) { backStackEntry ->
                     val clientIndex = backStackEntry.arguments?.getString("clientIndex")?.toIntOrNull()
                     clientIndex?.let {
-                        if (it >= 0 && it < clientes.size) {
-                            val client = clientes[it]
+                        if (it >= 0 && it < clients.value.size) {
+                            val client = clients.value[it]
                             ClientDetailScreen(
+                                client = client
+                            )
+                        }
+                    }
+                }
+                composable(Screen.ClientPortfolio.route){ backStackEntry ->
+                    val clientIndex = backStackEntry.arguments?.getString("clientIndex")?.toIntOrNull()
+                    clientIndex?.let {
+                        if (it >= 0 && it < clients.value.size) {
+                            val client = clients.value[it]
+                            ClientPortfolioScreen(
+                                navController = navController,
                                 client = client
                             )
                         }
@@ -208,9 +231,9 @@ fun MainApp( auth: FirebaseAuth,
                     AddClient(
                         onForgotPasswordClick = { navController.navigate(Screen.Password.route) },
                         navController = navController,
-                        auth = auth,
-                        currentAdminId = currentAdminId)
+                        auth = auth)
                 }
+
             }
         }
 

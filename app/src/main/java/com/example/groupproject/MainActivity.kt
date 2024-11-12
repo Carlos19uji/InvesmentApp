@@ -1,11 +1,12 @@
 package com.example.groupproject
 
+import android.app.Application
+import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -33,10 +34,18 @@ import com.example.groupproject.ui.theme.GroupProjectTheme
 import androidx.compose.ui.draw.clip
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
+import com.facebook.CallbackManager
+import com.facebook.FacebookCallback
+import com.facebook.FacebookException
+import com.facebook.FacebookSdk
+import com.facebook.appevents.AppEventsLogger
+import com.facebook.login.LoginManager
+import com.facebook.login.LoginResult
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
+import com.google.firebase.auth.FacebookAuthProvider
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.firestore.FirebaseFirestore
@@ -53,6 +62,11 @@ sealed class Screen(val route : String){
     object Support : Screen("support")
     object FundManagerClients : Screen("fund_manager_clients")
     object AddClient : Screen("add_client")
+    object ClientPortfolio : Screen("client_portfolio/{clientIndex}") {
+        fun createRoute(clientIndex: Int): String{
+            return "client_portfolio/$clientIndex"
+        }
+    }
     object ClientDetails : Screen("client_details/{clientIndex}") {
         fun createRoute(clientIndex: Int): String{
             return "client_details/$clientIndex"
@@ -75,10 +89,13 @@ class MainActivity : ComponentActivity() {
     private lateinit var googleSignInClient : GoogleSignInClient
     private lateinit var navController : NavController
     private var selectedRoleForAccountCreation: String? = null
+    private lateinit var callbackManager: CallbackManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
         auth = FirebaseAuth.getInstance()
+        callbackManager = CallbackManager.Factory.create()
 
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestIdToken(getString(R.string.default_web_client_id))
@@ -89,9 +106,13 @@ class MainActivity : ComponentActivity() {
         setContent {
             GroupProjectTheme {
                 navController = rememberNavController()
-                MainApp(auth, ::signInWithGoogle, ::createAccountWithGoogle)
+                MainApp(auth, ::signInWithGoogle, ::createAccountWithGoogle, ::logInWithFacebook, ::createAccountWithFacebook)
             }
         }
+    }
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        callbackManager.onActivityResult(requestCode, resultCode, data) // Facebook callback handling
     }
 
     private val googleSignInLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -113,6 +134,9 @@ class MainActivity : ComponentActivity() {
                     val userId = auth.currentUser?.uid
                     if (userId != null) {
                         if (selectedRoleForAccountCreation != null) {
+                            if (selectedRoleForAccountCreation == "Normal Client"){
+                                createPortfolioForNewUser(userId)
+                            }
                             selectedRoleForAccountCreation?.let { role ->
                                 saveUserRole(userId, role)
                                 selectedRoleForAccountCreation = null
@@ -160,6 +184,81 @@ class MainActivity : ComponentActivity() {
                 Log.e("saveUserRole", "Error saving user role: ${e.message}")
                 Toast.makeText(this, "Error saving user role: ${e.message}", Toast.LENGTH_SHORT).show()
             }
+    }
+
+
+    fun logInWithFacebook() {
+        val loginManager = LoginManager.getInstance()
+        loginManager.logInWithReadPermissions(this, listOf("email", "public_profile"))
+        loginManager.registerCallback(callbackManager, object : FacebookCallback<LoginResult> {
+            override fun onSuccess(result: LoginResult) {
+                val token = result.accessToken?.token
+                if (token != null) {
+                    val credential = FacebookAuthProvider.getCredential(token)
+                    FirebaseAuth.getInstance().signInWithCredential(credential)
+                        .addOnCompleteListener(this@MainActivity) { task ->
+                            if (task.isSuccessful) {
+                                val userId = FirebaseAuth.getInstance().currentUser?.uid
+                                if (userId != null) {
+                                    checkUserRol(userId, navController)
+                                }
+                            } else {
+                                Toast.makeText(this@MainActivity, "Authentication failed: ${task.exception?.message}", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                } else {
+                    Toast.makeText(this@MainActivity, "Token error: Token is null", Toast.LENGTH_SHORT).show()
+                }
+            }
+
+            override fun onCancel() {
+                Toast.makeText(this@MainActivity, "Login canceled", Toast.LENGTH_SHORT).show()
+            }
+
+            override fun onError(error: FacebookException) {
+                Toast.makeText(this@MainActivity, "Login error: ${error.message}", Toast.LENGTH_SHORT).show()
+            }
+        })
+    }
+
+
+    fun createAccountWithFacebook(selectedRole: String) {
+        selectedRoleForAccountCreation = selectedRole
+        val loginManager = LoginManager.getInstance()
+        loginManager.logInWithReadPermissions(this, listOf("email", "public_profile"))
+        loginManager.registerCallback(callbackManager, object : FacebookCallback<LoginResult> {
+            override fun onSuccess(result: LoginResult) {
+                val token = result.accessToken?.token
+                if (token != null) {
+                    val credential = FacebookAuthProvider.getCredential(token)
+                    FirebaseAuth.getInstance().signInWithCredential(credential)
+                        .addOnCompleteListener(this@MainActivity) { task ->
+                            if (task.isSuccessful) {
+                                val userId = FirebaseAuth.getInstance().currentUser?.uid
+                                if (userId != null) {
+                                    if (selectedRole == "Normal Client"){
+                                        createPortfolioForNewUser(userId)
+                                    }
+                                    saveUserRole(userId, selectedRole)
+                                    selectedRoleForAccountCreation = null
+                                }
+                            } else {
+                                Toast.makeText(this@MainActivity, "Account creation failed: ${task.exception?.message}", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                } else {
+                    Toast.makeText(this@MainActivity, "Token error: Token is null", Toast.LENGTH_SHORT).show()
+                }
+            }
+
+            override fun onCancel() {
+                Toast.makeText(this@MainActivity, "Account creation canceled", Toast.LENGTH_SHORT).show()
+            }
+
+            override fun onError(error: FacebookException) {
+                Toast.makeText(this@MainActivity, "Account creation error: ${error.message}", Toast.LENGTH_SHORT).show()
+            }
+        })
     }
 }
 
@@ -216,9 +315,37 @@ fun GreetingPreview() {
     }
 }
 @Composable
-fun log_in_facebook(){
+fun log_in_facebook(logInWithFacebook: () -> Unit){
     Button(
-        onClick = { "Accion iniciar sesion con Facebook" },
+        onClick = { logInWithFacebook() },
+        colors = ButtonDefaults.buttonColors(contentColor = Color(0xFF4267B2)),
+        shape = RoundedCornerShape(50),
+        modifier = Modifier
+            .width(300.dp)
+            .padding(vertical = 8.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ){
+            Image(
+                painter = painterResource(id = R.drawable.facebook),
+                contentDescription = "Facebook Logo",
+                modifier = Modifier.size(24.dp)
+                    .clip(CircleShape)
+            )
+
+            Spacer(modifier = Modifier.width(25.dp))
+
+            Text(text = "Continue with Facebook", color = Color.White, fontSize = 18.sp)
+        }
+    }
+}
+
+@Composable
+fun create_with_facebook(createAccountWithFacebook: () -> Unit){
+    Button(
+        onClick = { createAccountWithFacebook() },
         colors = ButtonDefaults.buttonColors(contentColor = Color(0xFF4267B2)),
         shape = RoundedCornerShape(50),
         modifier = Modifier

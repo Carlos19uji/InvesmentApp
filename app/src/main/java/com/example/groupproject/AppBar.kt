@@ -180,9 +180,11 @@ fun BottomNavigationBar(navController: NavController, isAdminUser: Boolean, sele
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.clickable {
-                    navController.navigate(Screen.Portfolio.route) {
-                        popUpTo(navController.graph.startDestinationId)
-                        launchSingleTop = true
+                    selectedClientIndex?.let { index ->
+                        navController.navigate(Screen.ClientPortfolio.createRoute(index)) {
+                            popUpTo(navController.graph.startDestinationId)
+                            launchSingleTop = true
+                        }
                     }
                 }
             ){
@@ -196,84 +198,92 @@ fun BottomNavigationBar(navController: NavController, isAdminUser: Boolean, sele
 }
 
 @Composable
-fun BottomNavigationBar2(navController: NavController, clientId: String, clientName: String) {
+fun BottomNavigationBar2(navController: NavController, isAdminUser: Boolean, selectedClientIndex: Int?) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
+        modifier = Modifier.fillMaxWidth()
             .background(Color.Gray),
         horizontalArrangement = Arrangement.SpaceAround
-    ) {
+    ){
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.clickable {
-                navController.navigate("clientDetail/$clientId/$clientName") {
-                    popUpTo(navController.graph.startDestinationId)
-                    launchSingleTop = true
+                if (isAdminUser) {
+                    selectedClientIndex?.let { index ->
+                        navController.navigate(Screen.ClientDetails.createRoute(index)) {
+                            popUpTo(navController.graph.startDestinationId)
+                            launchSingleTop = true
+                        }
+                    }
+                } else{
+                    navController.navigate(Screen.CorrectLogIn.route) {
+                        popUpTo(navController.graph.startDestinationId)
+                        launchSingleTop = true
+                    }
                 }
             }
-        ) {
+        ){
             Icon(
                 imageVector = Icons.Default.Home,
-                contentDescription = "Home"
+                contentDescription = "Home",
             )
             Text("Home", color = Color.Black)
         }
-
         Spacer(modifier = Modifier.width(8.dp))
 
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.clickable {
-                navController.navigate("crypto/$clientId/$clientName") {
+                navController.navigate(Screen.Crypto.route) {
                     popUpTo(navController.graph.startDestinationId)
                     launchSingleTop = true
                 }
             }
-        ) {
+        ){
             Icon(
                 imageVector = Icons.Default.AddCircle,
-                contentDescription = "Crypto"
+                contentDescription = "Crypto",
             )
             Text("Crypto", color = Color.Black)
         }
-
         Spacer(modifier = Modifier.width(8.dp))
 
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.clickable {
-                navController.navigate("assets/$clientId/$clientName") {
+                navController.navigate(Screen.Assets.route) {
                     popUpTo(navController.graph.startDestinationId)
                     launchSingleTop = true
                 }
             }
-        ) {
+        ){
             Icon(
                 imageVector = Icons.Default.AccountBox,
-                contentDescription = "Assets"
+                contentDescription = "Assests",
             )
-            Text("Assets", color = Color.Black)
+            Text("Assests", color = Color.Black)
         }
-
         Spacer(modifier = Modifier.width(8.dp))
 
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.clickable {
-                navController.navigate("portfolio/$clientId/$clientName") {
-                    popUpTo(navController.graph.startDestinationId)
-                    launchSingleTop = true
+                selectedClientIndex?.let { index ->
+                    navController.navigate(Screen.ClientPortfolio.createRoute(index)) {
+                        popUpTo(navController.graph.startDestinationId)
+                        launchSingleTop = true
+                    }
                 }
             }
-        ) {
+        ){
             Icon(
                 imageVector = Icons.Default.Build,
-                contentDescription = "Portfolio"
+                contentDescription = "Portfolio",
             )
-            Text("Portfolio", color = Color.Black)
+            Text("Porftolio", color = Color.Black)
         }
     }
 }
+
 @Composable
 fun DrawerContent(navController: NavController, scope: CoroutineScope, drawerState: DrawerState) {
     Column(
