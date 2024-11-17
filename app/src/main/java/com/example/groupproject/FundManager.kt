@@ -5,7 +5,9 @@ import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -22,14 +24,19 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -50,6 +57,9 @@ import java.io.Serializable
 
 data class Client(val name: String, val id: String)
 
+fun obtainClients(){
+
+}
 @Composable
 fun FundManagerClientsScreen(
     navController: NavController,
@@ -114,7 +124,9 @@ fun FundManagerClientsScreen(
                     ClientRow(client = client,
                         onClick = { onClientSelected(index)
                             navController.navigate(Screen.ClientDetails.createRoute(index))
-                        }
+                        },
+                        navController = navController,
+                        clientIndex = index
                     )
                 }
             }
@@ -134,8 +146,7 @@ fun FundManagerClientsScreen(
 
 
 @Composable
-fun ClientRow(client: Client, onClick: () -> Unit){
-
+fun ClientRow(client: Client, onClick: () -> Unit, navController: NavController, clientIndex: Int){
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -154,6 +165,7 @@ fun ClientRow(client: Client, onClick: () -> Unit){
             Text(text = client.id, fontSize = 16.sp, fontWeight = FontWeight.Bold)
 
         }
+        DeleteClientBar(clientIndex, navController)
     }
 }
 
@@ -235,6 +247,138 @@ fun AddClient(
         }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DeleteUser(navController: NavController, client: Client, auth: FirebaseAuth) {
+
+    val context = LocalContext.current
+    val inputId = remember { mutableStateOf("") }
+    val clientId = client.id
+    val clientName = client.name
+    var Error by remember { mutableStateOf(false) }
+    val currentAdminId = auth.currentUser?.uid.toString()
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0x80000000)),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Spacer(modifier = Modifier.height(32.dp))
+        Text(
+            text = "Client Name: ${clientName}",
+            color = Color.White,
+            fontSize = 22.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(8.dp).align(Alignment.CenterHorizontally)
+        )
+        Text(
+            text = "ID: ${clientId}",
+            color = Color.White,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(8.dp).align(Alignment.CenterHorizontally)
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth(0.8f)
+                    .background(Color.White)
+                    .clip(RoundedCornerShape(16.dp))
+                    .padding(16.dp), // Espaciado interno
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = "Enter ID $clientId to confirm deletion",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp,
+                    color = Color.Black,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                TextField(
+                    value = inputId.value,
+                    onValueChange = { inputId.value = it },
+                    placeholder = { Text("Client ID") },
+                    singleLine = true,
+                    modifier = Modifier
+                        .fillMaxWidth(),
+                    colors = TextFieldDefaults.textFieldColors(
+                        containerColor = Color.LightGray,
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent
+                    )
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+                if (Error){
+                    Text("You must intruduce the correct ID: (${clientId})", color = Color.Red, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                Row(
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Button(
+                        onClick = { navController.popBackStack() },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.Gray)
+                    ) {
+                        Text("Cancel", color = Color.White)
+                    }
+
+                    Button(
+                        onClick = {
+                            if (inputId.value == clientId) {
+                                val db = FirebaseFirestore.getInstance()
+                                val adminClients = db.collection("users").document(currentAdminId).collection("clients")
+                                adminClients.document(clientId).get().addOnCompleteListener { task ->
+                                    if (task.isSuccessful) {
+                                        val document = task.result
+                                        if (document.exists()) {
+                                            adminClients.document(clientId).delete()
+                                                .addOnSuccessListener {
+                                                    Log.d(
+                                                        "removeClient",
+                                                        "Removed $clientName with client ID: $clientId from clients."
+                                                    )
+                                                    Toast.makeText(context, "Client deleted successfully", Toast.LENGTH_SHORT).show()
+                                                    navController.navigate(Screen.FundManagerClients.route)
+                                                }
+                                                .addOnFailureListener { e ->
+                                                    Log.e(
+                                                        "removeClient",
+                                                        "Error removing client: $e"
+                                                    )
+                                                }
+                                        } else {
+                                            Log.e("removeClient", "Client does not exist in clients.")
+                                        }
+                                    } else {
+                                        Log.e(
+                                            "removeClient", "Error getting client", task.exception)
+                                    }
+                                }
+
+                            }else{
+                                Error = true
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                    ) {
+                        Text("Confirm", color = Color.White)
+                    }
+                }
+            }
+        }
+    }
+}
+
 fun checkClientRole(
     clientId: String,
     clientName: String,
@@ -273,7 +417,7 @@ fun addClientToAdmin(adminId: String, clientId: String, clientName: String, cont
         .addOnSuccessListener {
             Log.d("addClientToAdmin", "Client added successfully")
             Toast.makeText(context, "Client added successfully", Toast.LENGTH_SHORT).show()
-            navController.popBackStack()
+            navController.navigate(Screen.FundManagerClients.route)
         }
         .addOnFailureListener { e ->
             Log.e("addClientToAdmin", "Error adding client: ${e.message}")

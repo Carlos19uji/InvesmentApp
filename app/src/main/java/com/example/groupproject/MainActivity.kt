@@ -62,6 +62,21 @@ sealed class Screen(val route : String){
     object Support : Screen("support")
     object FundManagerClients : Screen("fund_manager_clients")
     object AddClient : Screen("add_client")
+    object DeleteClient : Screen("delete_client/{clientIndex}"){
+        fun createRoute(clientIndex: Int): String{
+            return "delete_client/$clientIndex"
+        }
+    }
+    object CryptoClient : Screen("crypto_client/{clientIndex}"){
+        fun createRoute(clientIndex: Int): String{
+            return "crypto_client/$clientIndex"
+        }
+    }
+    object AssetsClient : Screen("client_assets/{clientIndex}") {
+        fun createRoute(clientIndex: Int): String{
+            return "client_assets/$clientIndex"
+        }
+    }
     object ClientPortfolio : Screen("client_portfolio/{clientIndex}") {
         fun createRoute(clientIndex: Int): String{
             return "client_portfolio/$clientIndex"
@@ -77,9 +92,19 @@ sealed class Screen(val route : String){
             return "buy_screen/$index"
         }
     }
+    object BuyForClients : Screen("buyForClients/{clientId}/{index}") {
+        fun createRoute(clientId: String, index: Int): String {
+            return "buyForClients/$clientId/$index"
+        }
+    }
     object Sell : Screen("sell_screen/{index}") {
         fun createRoute(index: Int): String {
             return "sell_screen/$index"
+        }
+    }
+    object SellForClients : Screen("sellForClients/{clientId}/{index}") {
+        fun createRoute(clientId: String, index: Int): String {
+            return "sellForClients/$clientId/$index"
         }
     }
 }

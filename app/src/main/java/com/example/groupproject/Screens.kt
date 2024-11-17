@@ -101,7 +101,7 @@ fun LoginScreen(
     auth: FirebaseAuth,
     signInWithGoogle: () -> Unit,
     logInWithFacebook: () -> Unit,
-    AdminUser: (Boolean) -> Unit) {
+    onUserLoggedIn: (Boolean) -> Unit) {
 
     val emailState = remember { mutableStateOf("") }
     val passwordState = remember { mutableStateOf("") }
@@ -141,7 +141,7 @@ fun LoginScreen(
                     auth.signInWithEmailAndPassword(emailState.value, passwordState.value)
                         .addOnCompleteListener { task ->
                             if (task.isSuccessful) {
-                                AdminUser(true)
+                                onUserLoggedIn(true)
                                 val userId = auth.currentUser?.uid
                                 userId?.let {
                                     checkUserRol(it, navController)
@@ -258,7 +258,8 @@ fun create_account(
     navController: NavController,
     auth: FirebaseAuth,
     createAccountWithGoogle: (String) -> Unit,
-    createAccountWithFacebook: (String) -> Unit
+    createAccountWithFacebook: (String) -> Unit,
+    onUserLoggedIn: (Boolean) -> Unit
 ) {
 
     var emailState  = remember { mutableStateOf("") }
@@ -349,6 +350,7 @@ fun create_account(
                             )
                                 .addOnCompleteListener { task ->
                                     if (task.isSuccessful) {
+                                        onUserLoggedIn(true)
                                         val userId = task.result?.user?.uid
                                         if (userId != null) {
                                             val db = FirebaseFirestore.getInstance()
