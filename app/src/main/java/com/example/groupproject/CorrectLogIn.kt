@@ -31,9 +31,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -51,6 +53,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.tasks.await
 
 data class Item(val name: String, val image: Int, val price: Double, val percentangeChange : Double, val type: String)
 
@@ -69,7 +72,9 @@ val items = listOf(
 
 
 @Composable
-fun Correct_Log_In_Screen() {
+fun Correct_Log_In_Screen(auth: FirebaseAuth) {
+    val userId = auth.currentUser?.uid
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -77,7 +82,7 @@ fun Correct_Log_In_Screen() {
             .padding(16.dp),
         verticalArrangement = Arrangement.SpaceBetween
     ) {
-        HomeSummary()
+        HomeSummary(auth, userId= userId)
         Spacer(modifier = Modifier.height(16.dp))
 
         ImportantAlertsVisual()
@@ -86,13 +91,63 @@ fun Correct_Log_In_Screen() {
 }
 
 @Composable
-fun HomeSummary() {
+fun HomeSummary(auth: FirebaseAuth, userId: String?) {
+    var TotalStock by remember { mutableStateOf(0.0) }
+    var TotalCrypto by remember { mutableStateOf(0.0) }
+    var Total by remember { mutableStateOf(0.0) }
+    val portfolioItems = remember { mutableStateListOf<PortfolioData>() }
+
+    LaunchedEffect(userId) {
+        userId?.let { uid ->
+            try {
+                val db = FirebaseFirestore.getInstance()
+                val portfolioSnapshot = db.collection("users").document(uid).collection("portfolio").get().await()
+                portfolioItems.clear()
+
+                for (document in portfolioSnapshot) {
+                    val name = document.getString("name") ?: ""
+                    val units = document.getLong("units")?.toInt() ?: 0
+                    if (name != "crear") {
+                        portfolioItems.add(PortfolioData(name, units))
+                    }
+                }
+                TotalStock = 0.0
+                TotalCrypto = 0.0
+                Total = 0.0
+                val itemsSnapshot = db.collection("items").get().await()
+
+                for (document in itemsSnapshot) {
+                    val name = document.getString("name") ?: ""
+                    val price = document.getLong("price")?.toInt() ?: 0
+                    val type = document.getString("type") ?: ""
+                    for (item in portfolioItems) {
+                        if (item.name == name) {
+                            val units = item.units
+                            when (type) {
+                                "stock" -> {
+                                    TotalStock += price * units
+                                    Total += price * units
+                                }
+                                "crypto" -> {
+                                    TotalCrypto += price * units
+                                    Total += price * units
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("Firestore", "Error: ${e.message}")
+            }
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(300.dp)
             .background(Color.Black, RoundedCornerShape(16.dp))
-            .padding(16.dp)
+            .padding(16.dp),
     ) {
         Column(
             verticalArrangement = Arrangement.Center,
@@ -102,7 +157,7 @@ fun HomeSummary() {
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Total Value: \$150,000.00",
+                text = "Total Value: ${Total}$",
                 fontSize = 28.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.Green
@@ -110,8 +165,8 @@ fun HomeSummary() {
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            Text(text = "Stocks: \$85,000.00", color = Color.White)
-            Text(text = "Crypto: \$65,000.00", color = Color.White)
+            Text(text = "Stocks Value: ${TotalStock}$", color = Color.White)
+            Text(text = "Crypto Valuea: ${TotalCrypto}$", color = Color.White)
 
             Spacer(modifier = Modifier.height(8.dp))
 
@@ -353,30 +408,39 @@ fun CryptoRow(crypto: Item, navController: NavController, index: Int){
 }
 
 @Composable
-fun portfolio(navController: NavController){
-    val auth = FirebaseAuth.getInstance().currentUser
-    val db = FirebaseFirestore.getInstance()
-    val portfolioItems = remember{ mutableStateListOf<PortfolioData>() }
+fun portfolio(navController: NavController, auth: FirebaseAuth) {
+    val id = auth.currentUser?.uid
+    val portfolioItems = remember { mutableStateListOf<PortfolioData>() }
 
-    LaunchedEffect(Unit) {
-        auth?.uid?.let { userID ->
-            db.collection("users").document(userID).collection("portfolio")
-                .get()
-                .addOnSuccessListener { snapshot ->
-                    portfolioItems.clear()
-                    for (document in snapshot ){
-                        val name = document.getString("name")?:""
-                        val units = document.getLong("units")?.toInt()?:0
-                        if (name != "crear" ) {
-                            portfolioItems.add(PortfolioData(name, units))
+    LaunchedEffect(id) {
+        id?.let { userID ->
+            try {
+                val db = FirebaseFirestore.getInstance()
+                db.collection("users").document(userID).collection("portfolio")
+                    .get()
+                    .addOnSuccessListener { snapshot ->
+                        portfolioItems.clear()
+                        for (document in snapshot) {
+                            val name = document.getString("name") ?: ""
+                            val units = document.getLong("units")?.toInt() ?: 0
+                            if (name != "crear") {
+                                portfolioItems.add(PortfolioData(name, units))
+                            }
                         }
+                        Log.d("PortfolioScreen", "Fetched portfolio items: ${portfolioItems.size}")
                     }
-
-                }.addOnFailureListener { exception ->
-                    Log.e("Firestore", "Error fetching portfolio", exception)
-                }
+                    .addOnFailureListener { exception ->
+                        Log.e("Firestore", "Error fetching portfolio", exception)
+                    }
+            } catch (e: Exception) {
+                Log.e("Firestore", "Error: ${e.message}")
+            }
         }
     }
+
+    // Verifica que portfolioItems tenga datos antes de intentar mostrar
+    Log.d("PortfolioScreen", "Portfolio items size: ${portfolioItems.size}")
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -384,7 +448,7 @@ fun portfolio(navController: NavController){
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         item {
-            HomeSummary()
+            HomeSummary(auth, id)
             Spacer(modifier = Modifier.height(32.dp))
         }
 
@@ -404,7 +468,9 @@ fun portfolio(navController: NavController){
             }
         }
 
-        itemsIndexed(portfolioItems.filter { item -> item.name in items.filter { it.type == "crypto" }.map { it.name } }) { index, item ->
+        itemsIndexed(portfolioItems.filter { item ->
+            item.name in items.filter { it.type == "crypto" }.map { it.name }
+        }) { index, item ->
             val originalIndex = items.indexOfFirst { it.name == item.name }
             Spacer(modifier = Modifier.height(16.dp))
             portfolioItem(item = item, navController = navController, index = originalIndex)
@@ -427,14 +493,16 @@ fun portfolio(navController: NavController){
             }
         }
 
-        itemsIndexed(portfolioItems.filter { item -> item.name in items.filter { it.type == "stock" }.map { it.name } }) { index, item ->
+        itemsIndexed(portfolioItems.filter { item ->
+            item.name in items.filter { it.type == "stock" }.map { it.name }
+        }) { index, item ->
             val originalIndex = items.indexOfFirst { it.name == item.name }
             Spacer(modifier = Modifier.height(16.dp))
             portfolioItem(item = item, navController = navController, index = originalIndex)
         }
 
         item {
-            Spacer(modifier = Modifier.height(16.dp)) // Espacio al final
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }

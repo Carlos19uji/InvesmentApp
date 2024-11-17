@@ -43,7 +43,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 
 
 @Composable
-fun ClientDetailScreen(client: Client) {
+fun ClientDetailScreen(client: Client, auth: FirebaseAuth) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -64,14 +64,14 @@ fun ClientDetailScreen(client: Client) {
             modifier = Modifier.padding(8.dp).align(Alignment.CenterHorizontally)
         )
         Spacer(modifier = Modifier.height(16.dp))
-        HomeSummary()
+        HomeSummary(auth, client.id)
         Spacer(modifier = Modifier.height(32.dp))
         ImportantAlertsVisual()
     }
 }
 
 @Composable
-fun ClientPortfolioScreen(navController: NavController, client: Client) {
+fun ClientPortfolioScreen(navController: NavController, client: Client, auth: FirebaseAuth) {
 
     Column(
         modifier = Modifier
@@ -100,26 +100,30 @@ fun ClientPortfolioScreen(navController: NavController, client: Client) {
                 .padding(16.dp)
         ) {
             val id = client.id
-            val db = FirebaseFirestore.getInstance()
             val portfolioItems = remember{ mutableStateListOf<PortfolioData>() }
 
-            LaunchedEffect(Unit) {
-                id.let { userID ->
-                    db.collection("users").document(userID).collection("portfolio")
-                        .get()
-                        .addOnSuccessListener { snapshot ->
-                            portfolioItems.clear()
-                            for (document in snapshot ){
-                                val name = document.getString("name")?:""
-                                val units = document.getLong("units")?.toInt()?:0
-                                if (name != "crear" ) {
-                                    portfolioItems.add(PortfolioData(name, units))
+            LaunchedEffect(id) {
+                id?.let { userID ->
+                    try {
+                        val db = FirebaseFirestore.getInstance()
+                        db.collection("users").document(userID).collection("portfolio")
+                            .get()
+                            .addOnSuccessListener { snapshot ->
+                                portfolioItems.clear()
+                                for (document in snapshot) {
+                                    val name = document.getString("name") ?: ""
+                                    val units = document.getLong("units")?.toInt() ?: 0
+                                    if (name != "crear") {
+                                        portfolioItems.add(PortfolioData(name, units))
+                                    }
                                 }
-                            }
 
-                        }.addOnFailureListener { exception ->
-                            Log.e("Firestore", "Error fetching portfolio", exception)
-                        }
+                            }.addOnFailureListener { exception ->
+                                Log.e("Firestore", "Error fetching portfolio", exception)
+                            }
+                    }catch (e: Exception) {
+                        Log.e("Firestore", "Error: ${e.message}")
+                    }
                 }
             }
             LazyColumn(
@@ -129,7 +133,7 @@ fun ClientPortfolioScreen(navController: NavController, client: Client) {
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 item {
-                    HomeSummary()
+                    HomeSummary(auth, client.id)
                     Spacer(modifier = Modifier.height(32.dp))
                 }
 
@@ -179,7 +183,7 @@ fun ClientPortfolioScreen(navController: NavController, client: Client) {
                 }
 
                 item {
-                    Spacer(modifier = Modifier.height(16.dp)) // Espacio
+                    Spacer(modifier = Modifier.height(16.dp))
                 }
             }
         }

@@ -179,14 +179,14 @@ fun MainApp( auth: FirebaseAuth,
                     forgot_password(auth, navController)
                 }
                 composable(Screen.CorrectLogIn.route) {
-                    Correct_Log_In_Screen()
+                    Correct_Log_In_Screen(auth)
                     isUserLoggedIn.value = true
                 }
                 composable(Screen.Crypto.route) {
                     crypto(navController = navController)
                 }
                 composable(Screen.Portfolio.route) {
-                    portfolio(navController)
+                    portfolio(navController, auth)
                 }
                 composable(Screen.Assets.route) {
                     assests(navController = navController)
@@ -264,7 +264,8 @@ fun MainApp( auth: FirebaseAuth,
                         if (it >= 0 && it < clients.value.size) {
                             val client = clients.value[it]
                             ClientDetailScreen(
-                                client = client
+                                client = client,
+                                auth = auth
                             )
                         }
                     }
@@ -276,7 +277,8 @@ fun MainApp( auth: FirebaseAuth,
                             val client = clients.value[it]
                             ClientPortfolioScreen(
                                 navController = navController,
-                                client = client
+                                client = client,
+                                auth = auth
                             )
                         }
                     }
