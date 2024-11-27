@@ -1,4 +1,4 @@
-package com.example.groupproject
+package com.example.groupprojectapp
 
 import org.junit.Test
 

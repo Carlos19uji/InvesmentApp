@@ -6,11 +6,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.groupproject"
+    namespace = "com.example.groupprojectapp"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.example.groupproject"
+        applicationId = "com.example.groupprojectapp"
         minSdk = 24
         targetSdk = 34
         versionCode = 1
@@ -54,11 +54,23 @@ android {
 dependencies {
 
     implementation("com.facebook.android:facebook-login:latest.release")
+
     implementation("com.google.android.gms:play-services-auth:20.7.0")
+
     implementation("com.google.firebase:firebase-auth-ktx")
     implementation("com.google.firebase:firebase-auth:22.0.0")
     implementation("com.google.firebase:firebase-analytics")
+
+    implementation("com.squareup.retrofit2:retrofit:2.9.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
+    implementation("com.squareup.okhttp3:okhttp:4.9.0")
+
     implementation(platform("com.google.firebase:firebase-bom:32.3.1"))
+
+    implementation("androidx.compose.material:material-icons-core:<latest_version>")
+    implementation("androidx.compose.material:material-icons-extended:<latest_version>")
+
+
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -69,6 +81,7 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.firebase.firestore.ktx)
+    implementation(libs.androidx.runtime.livedata)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

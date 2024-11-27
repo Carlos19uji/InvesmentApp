@@ -1,7 +1,6 @@
-package com.example.groupproject
+package com.example.groupprojectapp
 
 import android.util.Log
-import android.widget.Space
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -19,56 +18,69 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.focusModifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.modifier.modifierLocalConsumer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import androidx.navigation.NavHostController
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
-data class Item(val name: String, val image: Int, val price: Double, val percentangeChange : Double, val type: String)
+
+data class Item(val name: String, val image: Int, var price: Double, var percentangeChange : Double, val type: String)
 
 data class PortfolioData(val name: String, val units: Int)
 
 val items = listOf(
+    // Cryptocurrencies (10)
     Item("Bitcoin", R.drawable.bitcoin, 38000.0, 3.5, "crypto"),
+    Item("Litecoin", R.drawable.litecoin, 150.0, -0.5, "crypto"),
+    Item("Cardano", R.drawable.cardano, 200.0, 2.3, "crypto"),
+    Item("Polkadot", R.drawable.polkadot, 5.0, -1.8, "crypto"),
+    Item("Solana", R.drawable.solana, 90.0, 5.1, "crypto"),
     Item("Ethereum", R.drawable.ethereum, 2500.0, -1.2, "crypto"),
     Item("Ripple", R.drawable.ripple, 1.2, 4.0, "crypto"),
-    Item("Litecoin", R.drawable.litecoin, 150.0, -0.5, "crypto"),
+    Item("Dogecoin", R.drawable.dogecoin, 0.25, 3.0, "crypto"),
+    Item("Shiba Inu", R.drawable.shibainu, 54.0, 8.7, "crypto"),
+    Item("Binance Coin", R.drawable.binancecoin, 500.0, -2.0, "crypto"),
+
+    // Technology Stocks (15)
     Item("Apple", R.drawable.apple, 150.0, 2.5, "stock"),
     Item("Tesla", R.drawable.tesla, 720.0, -3.8, "stock"),
     Item("Amazon", R.drawable.amazon, 3500.0, 1.1, "stock"),
     Item("Google", R.drawable.google, 2800.0, -0.6, "stock"),
+    Item("Microsoft", R.drawable.microsoft, 310.0, 2.2, "stock"),
+    Item("Meta", R.drawable.meta, 240.0, -1.5, "stock"),
+    Item("NVIDIA", R.drawable.nvidia, 290.0, 4.3, "stock"),
+    Item("AMD", R.drawable.amd, 140.0, -0.7, "stock"),
+    Item("Intel", R.drawable.intel, 50.0, 0.8, "stock"),
+    Item("Netflix", R.drawable.netflix, 500.0, 3.1, "stock"),
+    Item("Spotify", R.drawable.spotify, 200.0, 1.7, "stock"),
+    Item("Salesforce", R.drawable.salesforce, 260.0, -2.4, "stock"),
+    Item("Oracle", R.drawable.oracle, 100.0, 2.6, "stock"),
+    Item("Shopify", R.drawable.shopify, 1400.0, -1.9, "stock"),
+    Item("X", R.drawable.x, 65.0, 0.3, "stock")
 )
+
 
 
 @Composable
@@ -97,7 +109,18 @@ fun HomeSummary(auth: FirebaseAuth, userId: String?) {
     var Total by remember { mutableStateOf(0.0) }
     val portfolioItems = remember { mutableStateListOf<PortfolioData>() }
 
-    LaunchedEffect(userId) {
+
+    val stockViewModel: StockViewModel = viewModel()
+    val viewModel: CryptoViewModel = viewModel()
+
+    val stockList by stockViewModel.stockData.observeAsState(emptyList())
+    val cryptoItems by viewModel.cryptoData.observeAsState(emptyList())
+    LaunchedEffect(Unit) {
+        stockViewModel.fetchStockPrices()
+        viewModel.fetchCryptoPrices()
+    }
+
+    LaunchedEffect(userId, stockList, cryptoItems) {
         userId?.let { uid ->
             try {
                 val db = FirebaseFirestore.getInstance()
@@ -107,33 +130,27 @@ fun HomeSummary(auth: FirebaseAuth, userId: String?) {
                 for (document in portfolioSnapshot) {
                     val name = document.getString("name") ?: ""
                     val units = document.getLong("units")?.toInt() ?: 0
-                    if (name != "crear") {
+                    if (name.isNotEmpty()) {
                         portfolioItems.add(PortfolioData(name, units))
                     }
                 }
+
+                // Calcular los totales
                 TotalStock = 0.0
                 TotalCrypto = 0.0
                 Total = 0.0
-                val itemsSnapshot = db.collection("items").get().await()
 
-                for (document in itemsSnapshot) {
-                    val name = document.getString("name") ?: ""
-                    val price = document.getLong("price")?.toInt() ?: 0
-                    val type = document.getString("type") ?: ""
-                    for (item in portfolioItems) {
-                        if (item.name == name) {
-                            val units = item.units
-                            when (type) {
-                                "stock" -> {
-                                    TotalStock += price * units
-                                    Total += price * units
-                                }
-                                "crypto" -> {
-                                    TotalCrypto += price * units
-                                    Total += price * units
-                                }
-                            }
+                for (item in portfolioItems) {
+                    val matchingItem = items.find { it.name == item.name}
+                    val realTime = stockList.find { it.name == item.name }
+
+                    if (realTime != null && matchingItem != null){
+                        val value = realTime.price * item.units
+                        when (realTime.type){
+                            "stock" -> TotalStock += value
+                            "crypto" -> TotalCrypto += value
                         }
+                        Total += value
                     }
                 }
             } catch (e: Exception) {
@@ -141,6 +158,7 @@ fun HomeSummary(auth: FirebaseAuth, userId: String?) {
             }
         }
     }
+
 
     Box(
         modifier = Modifier
@@ -151,26 +169,29 @@ fun HomeSummary(auth: FirebaseAuth, userId: String?) {
     ) {
         Column(
             verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(16.dp)
         ) {
-            Text(text = "Portfolio Summary", fontSize = 20.sp, color = Color.White)
-            Spacer(modifier = Modifier.height(8.dp))
+            Text(text = "Portfolio Summary", fontSize = 22.sp, color = Color.White, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(16.dp))
 
             Text(
-                text = "Total Value: ${Total}$",
+                text = "Total Value: ${"%.2f".format(Total)}$",
                 fontSize = 28.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.Green
             )
 
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(text = "Stocks Value: ${"%.2f".format(TotalStock)}$", color = Color.White, fontSize = 18.sp)
             Spacer(modifier = Modifier.height(8.dp))
+            Text(text = "Crypto Value: ${"%.2f".format(TotalCrypto)}$", color = Color.White, fontSize = 18.sp)
 
-            Text(text = "Stocks Value: ${TotalStock}$", color = Color.White)
-            Text(text = "Crypto Valuea: ${TotalCrypto}$", color = Color.White)
+            Spacer(modifier = Modifier.height(16.dp))
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Text(text = "Today's Change: +2.5%", color = Color.Green, fontSize = 16.sp)
 
-            Text(text = "Today's Change: +2.5%", color = Color.Green)
         }
     }
 }
@@ -216,6 +237,20 @@ fun ImportantAlertsVisual() {
 
 @Composable
 fun assests(navController: NavController) {
+    // Aquí se crea el ViewModel directamente dentro de la función
+    val stockViewModel: StockViewModel = viewModel()
+
+    // Observar los datos de acciones desde el ViewModel
+    val stockList by stockViewModel.stockData.observeAsState(emptyList())
+
+    // Verificar si la lista tiene datos
+    Log.d("Assets", "Tamaño de la lista de acciones: ${stockList.size}")
+
+    // Cargar los precios de las acciones al iniciar
+    LaunchedEffect(Unit) {
+        stockViewModel.fetchStockPrices()
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -225,7 +260,7 @@ fun assests(navController: NavController) {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = "Stock Assests",
+            text = "Stock Assets",
             fontSize = 22.sp,
             color = Color.White,
             fontWeight = FontWeight.Bold
@@ -238,8 +273,12 @@ fun assests(navController: NavController) {
                 .padding(16.dp)
         ) {
 
+            if (stockList.isEmpty()) {
+                Log.d("Assets", "No se encontraron datos para mostrar.")
+            }
+
             LazyColumn(modifier = Modifier.fillMaxSize()) {
-                itemsIndexed(items) { index, item ->
+                itemsIndexed(stockList) { index, item ->
                     if (item.type == "stock") {
                         Spacer(modifier = Modifier.height(16.dp))
                         AssetsRow(stock = item, navController = navController, index = index)
@@ -249,7 +288,6 @@ fun assests(navController: NavController) {
         }
     }
 }
-
 
 @Composable
 fun AssetsRow(stock: Item, navController: NavController, index: Int){
@@ -282,7 +320,7 @@ fun AssetsRow(stock: Item, navController: NavController, index: Int){
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Price: \$${stock.price}",
+                text = "Price: ${"%.2f".format(stock.price)}$",
                 color = Color.Black,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Medium
@@ -290,7 +328,7 @@ fun AssetsRow(stock: Item, navController: NavController, index: Int){
 
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Change: ${stock.percentangeChange}%",
+                text = "Change:  ${"%.2f".format(stock.percentangeChange)}%",
                 color = if (stock.percentangeChange >= 0) Color.Green else Color.Red,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Medium
@@ -311,8 +349,23 @@ fun AssetsRow(stock: Item, navController: NavController, index: Int){
         }
     }
 }
+
 @Composable
-fun crypto(navController: NavController) {
+fun crypto(navController: NavController, auth: FirebaseAuth) {
+
+    val viewModel: CryptoViewModel = viewModel()
+
+    // Recordar un alcance de corrutina asociado al Composable
+    val coroutineScope = rememberCoroutineScope()
+
+    // Observar los datos desde LiveData
+    val cryptoItems by viewModel.cryptoData.observeAsState(emptyList())
+    val id = auth.currentUser?.uid
+
+    LaunchedEffect(id) {
+                    viewModel.fetchCryptoPrices()
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -321,10 +374,12 @@ fun crypto(navController: NavController) {
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(text = "Crypto Assests",
+        Text(
+            text = "Crypto Assets",
             fontSize = 22.sp,
             color = Color.White,
-            fontWeight = FontWeight.Bold)
+            fontWeight = FontWeight.Bold
+        )
         Spacer(modifier = Modifier.height(16.dp))
 
         Box(
@@ -333,9 +388,8 @@ fun crypto(navController: NavController) {
                 .clip(RoundedCornerShape(16.dp))
                 .padding(16.dp)
         ) {
-
             LazyColumn(modifier = Modifier.fillMaxSize()) {
-                itemsIndexed(items) { index, item ->
+                itemsIndexed(cryptoItems) { index, item ->
                     if (item.type == "crypto") {
                         Spacer(modifier = Modifier.height(16.dp))
                         CryptoRow(crypto = item, navController = navController, index = index)
@@ -354,6 +408,7 @@ fun CryptoRow(crypto: Item, navController: NavController, index: Int){
             .clip(RoundedCornerShape(16.dp))
             .background(color = Color.White)
             .padding(8.dp)
+            .clickable{ navController.navigate(Screen.CryptoDetails.createRoute(crypto.name)) }
     ) {
         Image(
             painter = painterResource(id = crypto.image),
@@ -377,7 +432,7 @@ fun CryptoRow(crypto: Item, navController: NavController, index: Int){
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Price: \$${crypto.price}",
+                text = "Price: ${"%.2f".format(crypto.price)}$",
                 color = Color.Black,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Medium
@@ -385,7 +440,7 @@ fun CryptoRow(crypto: Item, navController: NavController, index: Int){
 
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Change: ${crypto.percentangeChange}%",
+                text = "Change: ${"%.2f".format(crypto.percentangeChange)}%",
                 color = if (crypto.percentangeChange >= 0) Color.Green else Color.Red,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Medium
@@ -394,13 +449,13 @@ fun CryptoRow(crypto: Item, navController: NavController, index: Int){
             Spacer(modifier = Modifier.weight(1f))
             Button(
                 onClick = { navController.navigate(Screen.Buy.createRoute(index))},
-                colors = ButtonDefaults.buttonColors(containerColor = Color.Black), // Fondo negro
-                shape = RoundedCornerShape(16.dp) // Botón redondeado
+                colors = ButtonDefaults.buttonColors(containerColor = Color.Black),
+                shape = RoundedCornerShape(16.dp)
             ) {
                 Text(
                     text = "Buy",
                     color = Color.Green,
-                    fontWeight = FontWeight.Bold // Texto en verde y negrita
+                    fontWeight = FontWeight.Bold
                 )
             }
         }
@@ -412,7 +467,18 @@ fun portfolio(navController: NavController, auth: FirebaseAuth) {
     val id = auth.currentUser?.uid
     val portfolioItems = remember { mutableStateListOf<PortfolioData>() }
 
-    LaunchedEffect(id) {
+    val stockViewModel: StockViewModel = viewModel()
+    val cryptoViewModel: CryptoViewModel = viewModel()
+
+    val stockList by stockViewModel.stockData.observeAsState(emptyList())
+    val cryptoItems by cryptoViewModel.cryptoData.observeAsState(emptyList())
+
+    LaunchedEffect(Unit) {
+        stockViewModel.fetchStockPrices()  // Fetch de precios de stock
+        cryptoViewModel.fetchCryptoPrices()  // Fetch de precios de crypto
+    }
+
+    LaunchedEffect(id, stockList, cryptoItems) {
         id?.let { userID ->
             try {
                 val db = FirebaseFirestore.getInstance()
@@ -437,9 +503,6 @@ fun portfolio(navController: NavController, auth: FirebaseAuth) {
             }
         }
     }
-
-    // Verifica que portfolioItems tenga datos antes de intentar mostrar
-    Log.d("PortfolioScreen", "Portfolio items size: ${portfolioItems.size}")
 
     LazyColumn(
         modifier = Modifier
@@ -472,8 +535,9 @@ fun portfolio(navController: NavController, auth: FirebaseAuth) {
             item.name in items.filter { it.type == "crypto" }.map { it.name }
         }) { index, item ->
             val originalIndex = items.indexOfFirst { it.name == item.name }
+            val realTimeItem = stockList.find { it.name == item.name}
             Spacer(modifier = Modifier.height(16.dp))
-            portfolioItem(item = item, navController = navController, index = originalIndex)
+            portfolioItem(item = item, navController = navController, index = originalIndex, realTime = realTimeItem)
         }
 
         item {
@@ -497,8 +561,9 @@ fun portfolio(navController: NavController, auth: FirebaseAuth) {
             item.name in items.filter { it.type == "stock" }.map { it.name }
         }) { index, item ->
             val originalIndex = items.indexOfFirst { it.name == item.name }
+            val realTimeItem = stockList.find { it.name == item.name}
             Spacer(modifier = Modifier.height(16.dp))
-            portfolioItem(item = item, navController = navController, index = originalIndex)
+            portfolioItem(item = item, navController = navController, index = originalIndex, realTime = realTimeItem)
         }
 
         item {
@@ -509,31 +574,11 @@ fun portfolio(navController: NavController, auth: FirebaseAuth) {
 
 
 @Composable
-fun portfolioItem(item: PortfolioData, navController: NavController, index: Int){
+fun portfolioItem(item: PortfolioData, navController: NavController, index: Int, realTime: Item?){
 
-    val db = FirebaseFirestore.getInstance()
-    val itemRef = db.collection("items")
-
-    val price = remember { mutableStateOf(0.0) }
-    val percentageChange = remember { mutableStateOf(0.0) }
-
-    LaunchedEffect(item.name) {
-        itemRef.document(item.name).get().addOnCompleteListener { task ->
-            if (task.isSuccessful) {
-                val document = task.result
-                if (document.exists()) {
-                    price.value = document.getDouble("price") ?: 0.0
-                    percentageChange.value = document.getDouble("percentageChange") ?: 0.0
-                }
-            } else {
-                Log.e("Firestore", "Failed to fetch data for ${item.name}")
-            }
-        }
-    }
-
-    val selectedItem = items.find {it.name == item.name}
-
-    if (selectedItem != null){
+    val price = realTime?.price
+    val percentageChange = realTime?.percentangeChange
+    val selectedItem = items.find{ it.name == item.name}
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -541,26 +586,30 @@ fun portfolioItem(item: PortfolioData, navController: NavController, index: Int)
                 .background(color = Color.Black)
                 .padding(8.dp)
         ) {
-            Image(
-                painter = painterResource(id = selectedItem.image),
-                contentDescription = selectedItem.name,
-                modifier = Modifier
-                    .weight(1f)
-                    .height(100.dp)
-                    .width(80.dp)
-            )
+            if (selectedItem != null) {
+                Image(
+                    painter = painterResource(id = selectedItem.image),
+                    contentDescription = selectedItem.name,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(100.dp)
+                        .width(80.dp)
+                )
+            }
             Column(
                 modifier = Modifier
                     .weight(2f)
                     .padding(start = 16.dp)
             ) {
                 Row() {
-                    Text(
-                        text = selectedItem.name,
-                        color = Color.White,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    if (selectedItem != null) {
+                        Text(
+                            text = selectedItem.name,
+                            color = Color.White,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                     Spacer(modifier = Modifier.width(16.dp))
                     if (item.units > 1) {
                         Text(
@@ -579,19 +628,21 @@ fun portfolioItem(item: PortfolioData, navController: NavController, index: Int)
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
-                    text = "Price: \$${price.value}",
+                    text = "Price: \$${price}",
                     color = Color.White,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Medium
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "Change: ${percentageChange.value}%",
-                    color = if (percentageChange.value >= 0) Color.Green else Color.Red,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
-                )
+                if (percentageChange != null) {
+                    Text(
+                        text = "Change: ${percentageChange}%",
+                        color = if (percentageChange >= 0) Color.Green else Color.Red,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(8.dp))
                 Row() {
@@ -620,43 +671,9 @@ fun portfolioItem(item: PortfolioData, navController: NavController, index: Int)
                     }
                 }
             }
-        }
     }
 }
 
 
-@Composable
-fun support(navController: NavController) {
-    val emailState = remember { mutableStateOf("") }
-    val message = remember { mutableStateOf("") }
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        email(emailState)
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Text(text = "Message", color = Color.Black, fontWeight = FontWeight.Bold)
-        Spacer(modifier = Modifier.height(8.dp))
-
-        BasicTextField(
-            value = message.value,
-            onValueChange = { message.value = it },
-            modifier = Modifier
-                .width(350.dp)
-                .height(200.dp)
-                .padding(vertical = 8.dp)
-                .background(Color.White, RoundedCornerShape(8.dp))
-                .padding(16.dp),
-            decorationBox = { innerTextField ->
-                if (message.value.isEmpty()) Text(text = "You do not put any message", color = Color.Gray)
-                innerTextField()
-            }
-        )
-    }
-}
 
 

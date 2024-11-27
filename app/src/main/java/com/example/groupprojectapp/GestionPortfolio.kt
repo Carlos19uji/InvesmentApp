@@ -1,4 +1,4 @@
-package com.example.groupproject
+package com.example.groupprojectapp
 
 import android.util.Log
 import com.google.firebase.firestore.FirebaseFirestore

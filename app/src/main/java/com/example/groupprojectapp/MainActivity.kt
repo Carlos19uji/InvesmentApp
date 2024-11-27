@@ -1,6 +1,5 @@
-package com.example.groupproject
+package com.example.groupprojectapp
 
-import android.app.Application
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
@@ -24,21 +23,22 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.groupproject.ui.theme.GroupProjectTheme
+import com.example.groupprojectapp.ui.theme.GroupProjectTheme
 import androidx.compose.ui.draw.clip
+import androidx.lifecycle.ViewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
+import com.example.groupprojectapp.R
 import com.facebook.CallbackManager
 import com.facebook.FacebookCallback
 import com.facebook.FacebookException
-import com.facebook.FacebookSdk
-import com.facebook.appevents.AppEventsLogger
 import com.facebook.login.LoginManager
 import com.facebook.login.LoginResult
 import com.google.android.gms.auth.api.signin.GoogleSignIn
@@ -48,7 +48,6 @@ import com.google.android.gms.common.api.ApiException
 import com.google.firebase.auth.FacebookAuthProvider
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
-import com.google.firebase.firestore.FirebaseFirestore
 
 sealed class Screen(val route : String){
     object Home : Screen("home_screen")
@@ -62,49 +61,21 @@ sealed class Screen(val route : String){
     object Support : Screen("support")
     object FundManagerClients : Screen("fund_manager_clients")
     object AddClient : Screen("add_client")
-    object DeleteClient : Screen("delete_client/{clientIndex}"){
-        fun createRoute(clientIndex: Int): String{
-            return "delete_client/$clientIndex"
-        }
-    }
-    object CryptoClient : Screen("crypto_client/{clientIndex}"){
-        fun createRoute(clientIndex: Int): String{
-            return "crypto_client/$clientIndex"
-        }
-    }
-    object AssetsClient : Screen("client_assets/{clientIndex}") {
-        fun createRoute(clientIndex: Int): String{
-            return "client_assets/$clientIndex"
-        }
-    }
-    object ClientPortfolio : Screen("client_portfolio/{clientIndex}") {
-        fun createRoute(clientIndex: Int): String{
-            return "client_portfolio/$clientIndex"
-        }
-    }
-    object ClientDetails : Screen("client_details/{clientIndex}") {
-        fun createRoute(clientIndex: Int): String{
-            return "client_details/$clientIndex"
-        }
-    }
+    object Reviews : Screen("reviews")
+
     object Buy : Screen("buy_screen/{index}") {
         fun createRoute(index: Int): String {
             return "buy_screen/$index"
         }
     }
-    object BuyForClients : Screen("buyForClients/{clientId}/{index}") {
-        fun createRoute(clientId: String, index: Int): String {
-            return "buyForClients/$clientId/$index"
-        }
-    }
     object Sell : Screen("sell_screen/{index}") {
         fun createRoute(index: Int): String {
-            return "sell_screen/$index"
+            return  "sell_screen/$index"
         }
     }
-    object SellForClients : Screen("sellForClients/{clientId}/{index}") {
-        fun createRoute(clientId: String, index: Int): String {
-            return "sellForClients/$clientId/$index"
+    object CryptoDetails : Screen("crypto_details/{cryptoName}"){
+        fun createRoute(cryptoName: String): String {
+            return "crypto_details/$cryptoName"
         }
     }
 }
@@ -113,7 +84,6 @@ class MainActivity : ComponentActivity() {
     private lateinit var auth : FirebaseAuth
     private lateinit var googleSignInClient : GoogleSignInClient
     private lateinit var navController : NavController
-    private var selectedRoleForAccountCreation: String? = null
     private lateinit var callbackManager: CallbackManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -128,6 +98,8 @@ class MainActivity : ComponentActivity() {
             .build()
         googleSignInClient = GoogleSignIn.getClient(this, gso)
 
+        Log.d("MainActivity", "Google SignIn Client initialized")
+
         setContent {
             GroupProjectTheme {
                 navController = rememberNavController()
@@ -137,78 +109,56 @@ class MainActivity : ComponentActivity() {
     }
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        Log.d("MainActivity", "onActivityResult called with requestCode: $requestCode") // Log aquí
         callbackManager.onActivityResult(requestCode, resultCode, data) // Facebook callback handling
     }
 
     private val googleSignInLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        Log.d("MainActivity", "Google SignIn launcher result received: ${result.resultCode}") // Log aquí
         val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
         try {
             val account = task.getResult(ApiException::class.java)!!
-            firebaseAuthWithGoogle(account.idToken!!)
+            Log.d("MainActivity", "Google sign-in successful, account: ${account.displayName}") // Log aquí
+            firebaseAuthWithGoogle(account.idToken!!, navController)
         } catch (e: ApiException) {
+            Log.e("MainActivity", "Google sign-in failed: ${e.message}", e)  // Log de error aquí
             Toast.makeText(this, "Google sign-in failed: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
 
-    private fun firebaseAuthWithGoogle(idToken: String) {
+    private fun firebaseAuthWithGoogle(idToken: String, navController: NavController) {
+        Log.d("MainActivity", "firebaseAuthWithGoogle called with idToken: $idToken")  // Log aquí
         val credential = GoogleAuthProvider.getCredential(idToken, null)
 
-        try {
-            auth.signInWithCredential(credential).addOnCompleteListener(this) { task ->
-                if (task.isSuccessful) {
-                    val userId = auth.currentUser?.uid
-                    if (userId != null) {
-                        if (selectedRoleForAccountCreation != null) {
-                            if (selectedRoleForAccountCreation == "Normal Client"){
-                                createPortfolioForNewUser(userId)
-                            }
-                            selectedRoleForAccountCreation?.let { role ->
-                                saveUserRole(userId, role)
-                                selectedRoleForAccountCreation = null
-                            }
-                        }
-                        checkUserRol(userId, navController)
-                    } else {
-                        Toast.makeText(
-                            this,
-                            "Authentication failed: Unable to retrieve user ID.",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    }
+        auth.signInWithCredential(credential).addOnCompleteListener(this) { task ->
+            if (task.isSuccessful) {
+                val userId = auth.currentUser?.uid
+                Log.d("MainActivity", "Sign in successful, userId: $userId")  // Log aquí
+                if (userId != null) {
+                    createPortfolioForNewUser(userId)
+                    Log.d("MainActivity", "Navigating to Correct Log In screen")
+                    navController.navigate(Screen.CorrectLogIn.route) // Navegar a la pantalla correcta
                 } else {
-                    Toast.makeText(this, "Authentication Failed.", Toast.LENGTH_SHORT).show()
+                    Log.e("MainActivity", "Authentication failed: Unable to retrieve user ID.")  // Log de error aquí
+                    Toast.makeText(this, "Authentication failed: Unable to retrieve user ID.", Toast.LENGTH_SHORT).show()
                 }
+            } else {
+                Log.e("MainActivity", "Authentication Failed.")  // Log de error aquí
+                Toast.makeText(this, "Authentication Failed.", Toast.LENGTH_SHORT).show()
             }
-        }catch (e: Exception){
-            Log.e("firebaseAuthWithGoogle", "Error during Google sign-in", e)
-            Toast.makeText(this, "Google sign-in failed: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
 
     fun signInWithGoogle() {
+        Log.d("MainActivity", "signInWithGoogle called")  // Log aquí
         val signInIntent = googleSignInClient.signInIntent
         googleSignInLauncher.launch(signInIntent)
     }
 
-    fun createAccountWithGoogle(selectedRole: String) {
-        selectedRoleForAccountCreation = selectedRole  // Guardar el rol seleccionado
+    fun createAccountWithGoogle() {
+        Log.d("MainActivity", "createAccountWithGoogle called")  // Log aquí
         val signInIntent = googleSignInClient.signInIntent
         googleSignInLauncher.launch(signInIntent)
-    }
-
-    private fun saveUserRole(userId: String, selectedRole: String) {
-        val db = FirebaseFirestore.getInstance()
-        val userDoc = db.collection("users").document(userId)
-        val userData = hashMapOf("role" to selectedRole)
-
-        userDoc.set(userData)
-            .addOnSuccessListener {
-                Log.d("saveUserRole", "User role saved successfully")
-            }
-            .addOnFailureListener { e ->
-                Log.e("saveUserRole", "Error saving user role: ${e.message}")
-                Toast.makeText(this, "Error saving user role: ${e.message}", Toast.LENGTH_SHORT).show()
-            }
     }
 
 
@@ -225,7 +175,7 @@ class MainActivity : ComponentActivity() {
                             if (task.isSuccessful) {
                                 val userId = FirebaseAuth.getInstance().currentUser?.uid
                                 if (userId != null) {
-                                    checkUserRol(userId, navController)
+
                                 }
                             } else {
                                 Toast.makeText(this@MainActivity, "Authentication failed: ${task.exception?.message}", Toast.LENGTH_SHORT).show()
@@ -247,8 +197,7 @@ class MainActivity : ComponentActivity() {
     }
 
 
-    fun createAccountWithFacebook(selectedRole: String) {
-        selectedRoleForAccountCreation = selectedRole
+    fun createAccountWithFacebook() {
         val loginManager = LoginManager.getInstance()
         loginManager.logInWithReadPermissions(this, listOf("email", "public_profile"))
         loginManager.registerCallback(callbackManager, object : FacebookCallback<LoginResult> {
@@ -261,11 +210,7 @@ class MainActivity : ComponentActivity() {
                             if (task.isSuccessful) {
                                 val userId = FirebaseAuth.getInstance().currentUser?.uid
                                 if (userId != null) {
-                                    if (selectedRole == "Normal Client"){
                                         createPortfolioForNewUser(userId)
-                                    }
-                                    saveUserRole(userId, selectedRole)
-                                    selectedRoleForAccountCreation = null
                                 }
                             } else {
                                 Toast.makeText(this@MainActivity, "Account creation failed: ${task.exception?.message}", Toast.LENGTH_SHORT).show()
@@ -287,44 +232,6 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-
-fun checkUserRol(userId: String, navController: NavController) {
-    val db = FirebaseFirestore.getInstance()
-    val userDoc = db.collection("users").document(userId)
-
-    userDoc.get().addOnCompleteListener { document ->
-        if (document.isSuccessful && document.result != null) {
-            val role = document.result?.getString("role")
-            Log.d("checkUserRol", "User role fetched: $role")
-
-            if (role == "Fund Administrator") {
-                val fundAdminRef = db.collection("fundAdministrators").document(userId)
-                fundAdminRef.collection("clients").get().addOnSuccessListener { snapshot ->
-                    if (snapshot.isEmpty){
-                        Log.d("checkUserRol", "Clients collection is empty, ready to add clients.")
-                    }
-                }.addOnFailureListener { e ->
-                        Log.e("checkUserRol", "Error creating clients collection", e)
-                }
-                Log.d("checkUserRol", "Navigating to FundManagerClients")
-                navController.navigate(Screen.FundManagerClients.route) {
-                    popUpTo(Screen.Login.route) { inclusive = true }
-                }
-            }else{
-                Log.d("checkUserRol", "Navigating to CorrectLogIn")
-                navController.navigate(Screen.CorrectLogIn.route){
-                    popUpTo(Screen.Login.route){inclusive = true}
-                }
-            }
-        } else {
-            Log.e("Firestore", "Error getting user role or document doesn't exist")
-            Toast.makeText(navController.context, "Error retrieving user role", Toast.LENGTH_SHORT).show()
-        }
-    }.addOnFailureListener { e ->
-        Log.e("Firestore", "Error getting user role", e)
-
-    }
-}
 @Composable
 fun Greeting(name: String, modifier: Modifier = Modifier) {
     Text(
@@ -398,7 +305,9 @@ fun create_with_facebook(createAccountWithFacebook: () -> Unit){
 @Composable
 fun log_in_google(signInWithGoogle: () -> Unit){
         Button(
-            onClick = { signInWithGoogle() },
+            onClick = {
+
+                signInWithGoogle() },
             colors = ButtonDefaults.buttonColors(containerColor = Color.White),
             shape = RoundedCornerShape(50),
             modifier = Modifier
@@ -509,5 +418,18 @@ fun password(passwordState: MutableState<String>){
                 innerTextField()
             }
         )
+    }
+}
+
+class UserViewModel : ViewModel() {
+    var isUserLoggedIn = mutableStateOf(false)
+        private set
+
+    fun logIn() {
+        isUserLoggedIn.value = true
+    }
+
+    fun logOut() {
+        isUserLoggedIn.value = false
     }
 }
