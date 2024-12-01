@@ -78,6 +78,11 @@ sealed class Screen(val route : String){
             return "crypto_details/$cryptoName"
         }
     }
+    object StockDetails : Screen("stock_details/{stockName}"){
+        fun createRoute(stockName: String): String{
+            return "stock_details/$stockName"
+        }
+    }
 }
 
 class MainActivity : ComponentActivity() {
@@ -109,54 +114,54 @@ class MainActivity : ComponentActivity() {
     }
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        Log.d("MainActivity", "onActivityResult called with requestCode: $requestCode") // Log aquí
-        callbackManager.onActivityResult(requestCode, resultCode, data) // Facebook callback handling
+        Log.d("MainActivity", "onActivityResult called with requestCode: $requestCode")
+        callbackManager.onActivityResult(requestCode, resultCode, data)
     }
 
     private val googleSignInLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        Log.d("MainActivity", "Google SignIn launcher result received: ${result.resultCode}") // Log aquí
+        Log.d("MainActivity", "Google SignIn launcher result received: ${result.resultCode}")
         val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
         try {
             val account = task.getResult(ApiException::class.java)!!
-            Log.d("MainActivity", "Google sign-in successful, account: ${account.displayName}") // Log aquí
+            Log.d("MainActivity", "Google sign-in successful, account: ${account.displayName}")
             firebaseAuthWithGoogle(account.idToken!!, navController)
         } catch (e: ApiException) {
-            Log.e("MainActivity", "Google sign-in failed: ${e.message}", e)  // Log de error aquí
+            Log.e("MainActivity", "Google sign-in failed: ${e.message}", e)
             Toast.makeText(this, "Google sign-in failed: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
 
     private fun firebaseAuthWithGoogle(idToken: String, navController: NavController) {
-        Log.d("MainActivity", "firebaseAuthWithGoogle called with idToken: $idToken")  // Log aquí
+        Log.d("MainActivity", "firebaseAuthWithGoogle called with idToken: $idToken")
         val credential = GoogleAuthProvider.getCredential(idToken, null)
 
         auth.signInWithCredential(credential).addOnCompleteListener(this) { task ->
             if (task.isSuccessful) {
                 val userId = auth.currentUser?.uid
-                Log.d("MainActivity", "Sign in successful, userId: $userId")  // Log aquí
+                Log.d("MainActivity", "Sign in successful, userId: $userId")
                 if (userId != null) {
                     createPortfolioForNewUser(userId)
                     Log.d("MainActivity", "Navigating to Correct Log In screen")
-                    navController.navigate(Screen.CorrectLogIn.route) // Navegar a la pantalla correcta
+                    navController.navigate(Screen.CorrectLogIn.route)
                 } else {
-                    Log.e("MainActivity", "Authentication failed: Unable to retrieve user ID.")  // Log de error aquí
+                    Log.e("MainActivity", "Authentication failed: Unable to retrieve user ID.")
                     Toast.makeText(this, "Authentication failed: Unable to retrieve user ID.", Toast.LENGTH_SHORT).show()
                 }
             } else {
-                Log.e("MainActivity", "Authentication Failed.")  // Log de error aquí
+                Log.e("MainActivity", "Authentication Failed.")
                 Toast.makeText(this, "Authentication Failed.", Toast.LENGTH_SHORT).show()
             }
         }
     }
 
     fun signInWithGoogle() {
-        Log.d("MainActivity", "signInWithGoogle called")  // Log aquí
+        Log.d("MainActivity", "signInWithGoogle called")
         val signInIntent = googleSignInClient.signInIntent
         googleSignInLauncher.launch(signInIntent)
     }
 
     fun createAccountWithGoogle() {
-        Log.d("MainActivity", "createAccountWithGoogle called")  // Log aquí
+        Log.d("MainActivity", "createAccountWithGoogle called")
         val signInIntent = googleSignInClient.signInIntent
         googleSignInLauncher.launch(signInIntent)
     }
@@ -418,18 +423,5 @@ fun password(passwordState: MutableState<String>){
                 innerTextField()
             }
         )
-    }
-}
-
-class UserViewModel : ViewModel() {
-    var isUserLoggedIn = mutableStateOf(false)
-        private set
-
-    fun logIn() {
-        isUserLoggedIn.value = true
-    }
-
-    fun logOut() {
-        isUserLoggedIn.value = false
     }
 }

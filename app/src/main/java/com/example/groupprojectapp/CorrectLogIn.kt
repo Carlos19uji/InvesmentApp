@@ -113,8 +113,9 @@ fun HomeSummary(auth: FirebaseAuth, userId: String?) {
     val stockViewModel: StockViewModel = viewModel()
     val viewModel: CryptoViewModel = viewModel()
 
-    val stockList by stockViewModel.stockData.observeAsState(emptyList())
     val cryptoItems by viewModel.cryptoData.observeAsState(emptyList())
+
+    val stockList by stockViewModel.stockData.observeAsState(emptyList())
     LaunchedEffect(Unit) {
         stockViewModel.fetchStockPrices()
         viewModel.fetchCryptoPrices()
@@ -135,7 +136,6 @@ fun HomeSummary(auth: FirebaseAuth, userId: String?) {
                     }
                 }
 
-                // Calcular los totales
                 TotalStock = 0.0
                 TotalCrypto = 0.0
                 Total = 0.0
@@ -177,7 +177,7 @@ fun HomeSummary(auth: FirebaseAuth, userId: String?) {
 
             Text(
                 text = "Total Value: ${"%.2f".format(Total)}$",
-                fontSize = 28.sp,
+                fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.Green
             )
@@ -237,16 +237,13 @@ fun ImportantAlertsVisual() {
 
 @Composable
 fun assests(navController: NavController) {
-    // Aquí se crea el ViewModel directamente dentro de la función
+
     val stockViewModel: StockViewModel = viewModel()
 
-    // Observar los datos de acciones desde el ViewModel
     val stockList by stockViewModel.stockData.observeAsState(emptyList())
 
-    // Verificar si la lista tiene datos
     Log.d("Assets", "Tamaño de la lista de acciones: ${stockList.size}")
 
-    // Cargar los precios de las acciones al iniciar
     LaunchedEffect(Unit) {
         stockViewModel.fetchStockPrices()
     }
@@ -297,6 +294,7 @@ fun AssetsRow(stock: Item, navController: NavController, index: Int){
             .clip(RoundedCornerShape(16.dp))
             .background(color = Color.White)
             .padding(8.dp)
+            .clickable{ navController.navigate(Screen.StockDetails.createRoute(stock.name)) }
     ) {
         Image(
             painter = painterResource(id = stock.image),
@@ -319,8 +317,16 @@ fun AssetsRow(stock: Item, navController: NavController, index: Int){
             )
             Spacer(modifier = Modifier.height(8.dp))
 
+            val formattedPrice = if (stock.price < 0.01) {
+
+                stock.price.toString()
+            } else {
+
+                "%.2f".format(stock.price)
+            }
+
             Text(
-                text = "Price: ${"%.2f".format(stock.price)}$",
+                text = "Price: $formattedPrice$",
                 color = Color.Black,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Medium
@@ -337,13 +343,13 @@ fun AssetsRow(stock: Item, navController: NavController, index: Int){
             Spacer(modifier = Modifier.weight(1f))
             Button(
                 onClick = {navController.navigate(Screen.Buy.createRoute(index)) },
-                colors = ButtonDefaults.buttonColors(containerColor = Color.Black), // Fondo negro
-                shape = RoundedCornerShape(16.dp) // Botón redondeado
+                colors = ButtonDefaults.buttonColors(containerColor = Color.Black),
+                shape = RoundedCornerShape(16.dp)
             ) {
                 Text(
                     text = "Buy",
                     color = Color.Green,
-                    fontWeight = FontWeight.Bold // Texto en verde y negrita
+                    fontWeight = FontWeight.Bold
                 )
             }
         }
@@ -355,15 +361,11 @@ fun crypto(navController: NavController, auth: FirebaseAuth) {
 
     val viewModel: CryptoViewModel = viewModel()
 
-    // Recordar un alcance de corrutina asociado al Composable
-    val coroutineScope = rememberCoroutineScope()
-
-    // Observar los datos desde LiveData
     val cryptoItems by viewModel.cryptoData.observeAsState(emptyList())
     val id = auth.currentUser?.uid
 
     LaunchedEffect(id) {
-                    viewModel.fetchCryptoPrices()
+        viewModel.fetchCryptoPrices()
     }
 
     Column(
@@ -431,8 +433,16 @@ fun CryptoRow(crypto: Item, navController: NavController, index: Int){
             )
             Spacer(modifier = Modifier.height(8.dp))
 
+            val formattedPrice = if (crypto.price < 0.01) {
+
+                crypto.price.toString()
+            } else {
+
+                "%.2f".format(crypto.price)
+            }
+
             Text(
-                text = "Price: ${"%.2f".format(crypto.price)}$",
+                text = "Price: $formattedPrice$",
                 color = Color.Black,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Medium
@@ -468,14 +478,17 @@ fun portfolio(navController: NavController, auth: FirebaseAuth) {
     val portfolioItems = remember { mutableStateListOf<PortfolioData>() }
 
     val stockViewModel: StockViewModel = viewModel()
-    val cryptoViewModel: CryptoViewModel = viewModel()
 
     val stockList by stockViewModel.stockData.observeAsState(emptyList())
-    val cryptoItems by cryptoViewModel.cryptoData.observeAsState(emptyList())
+    val viewModel: CryptoViewModel = viewModel()
+
+
+    val cryptoItems by viewModel.cryptoData.observeAsState(emptyList())
+
 
     LaunchedEffect(Unit) {
-        stockViewModel.fetchStockPrices()  // Fetch de precios de stock
-        cryptoViewModel.fetchCryptoPrices()  // Fetch de precios de crypto
+        stockViewModel.fetchStockPrices()
+        viewModel.fetchCryptoPrices()
     }
 
     LaunchedEffect(id, stockList, cryptoItems) {

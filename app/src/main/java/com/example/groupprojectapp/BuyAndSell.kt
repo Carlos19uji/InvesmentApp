@@ -213,17 +213,17 @@ fun buy_screen(Name: String, Price: Double, Image: Int, Percentage: Double, type
                     Button(
                         onClick = {
                             if ((type == "crypto" && cryptoCount < 3) || (type == "stock" && stockCount < 10) || userHasItem) {
-                                // Si cumple los requisitos o ya tiene el ítem, se realiza la compra
+
                                 addItemPortfolio(auth.currentUser?.uid.toString(), Name, quantity)
                                 successMessage = "Purchase Successful!"
-                                errorMessage = "" // Limpiar el mensaje de error si la compra es exitosa
+                                errorMessage = ""
                             } else {
                                 if (type == "crypto"){
                                     errorMessage = "You cannot buy this item due to the limits (Maximum of 3 different crypto assets)."
                                 }else{
                                     errorMessage = "You cannot buy this item due to the limits (Maximum of 10 different technology stocks)."
                                 }
-                                successMessage = "" // Limpiar el mensaje de éxito si la compra no es posible
+                                successMessage = ""
                             }
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = Color.Green),

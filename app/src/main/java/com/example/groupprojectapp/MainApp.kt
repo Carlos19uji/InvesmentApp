@@ -51,7 +51,8 @@ fun MainApp( auth: FirebaseAuth,
                         Screen.AddClient.route,
                         Screen.Sell.route,
                         Screen.Reviews.route,
-                        Screen.CryptoDetails.route
+                        Screen.CryptoDetails.route,
+                        Screen.StockDetails.route
                     )
                 ) {
                     val title = when (currentScreen) {
@@ -63,6 +64,7 @@ fun MainApp( auth: FirebaseAuth,
                         Screen.Sell.route -> "Sell"
                         Screen.Reviews.route -> "Reviews"
                         Screen.CryptoDetails.route -> "Details"
+                        Screen.StockDetails.route -> "Details"
                         else -> ""
                     }
                     TopNavigationBar(onBackClick = { navController.popBackStack() }, title = title)
@@ -174,6 +176,10 @@ fun MainApp( auth: FirebaseAuth,
                 composable(Screen.CryptoDetails.route){ backStackEntry ->
                     val cryptoName = backStackEntry.arguments?.getString("cryptoName") ?: ""
                     CryptoDetails(navController, cryptoName)
+                }
+                composable(Screen.StockDetails.route){ backStackEntry ->
+                    val stockName = backStackEntry.arguments?.getString("stockName") ?: ""
+                    StockDetails(navController, stockName)
                 }
             }
         }

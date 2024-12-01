@@ -66,7 +66,7 @@ fun support(navController: NavController) {
     val subjectState = remember { mutableStateOf("") }
     val messageState = remember { mutableStateOf("") }
     val context = LocalContext.current
-    val showDialog = remember { mutableStateOf(false) } // Control del estado del diálogo
+    val showDialog = remember { mutableStateOf(false) }
     val messageSent = remember { mutableStateOf(false) }
     val errorMessage = remember { mutableStateOf("") }
 
@@ -89,12 +89,11 @@ fun support(navController: NavController) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Email Field
+
         email(emailState)
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Subject Field
         Text(text = "Subject", color = Color.White, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(8.dp))
         BasicTextField(
@@ -113,7 +112,6 @@ fun support(navController: NavController) {
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Message Field
         Text(text = "Message", color = Color.White, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(8.dp))
         BasicTextField(
@@ -133,14 +131,14 @@ fun support(navController: NavController) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Submit Button
+
         Button(
             onClick = {
                 if (emailState.value.isNotEmpty() &&
                     subjectState.value.isNotEmpty() &&
                     messageState.value.isNotEmpty()
                 ) {
-                    // Construye el contenido del mensaje
+
                     val messageContent = """
                         From: ${emailState.value}
                         Subject: ${subjectState.value}
@@ -148,7 +146,7 @@ fun support(navController: NavController) {
                         ${messageState.value}
                     """.trimIndent()
 
-                    // Enviar el correo mediante un Intent de tipo ACTION_SEND
+
                     val intent = Intent(Intent.ACTION_SEND).apply {
                         type = "message/rfc822"
                         putExtra(Intent.EXTRA_EMAIL, arrayOf("carlos.ripollesmotos@mycit.ie"))
@@ -183,7 +181,7 @@ fun support(navController: NavController) {
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Feedback Texts
+
         if (messageSent.value) {
             Text(
                 text = "Your message has been sent successfully.",
@@ -205,21 +203,20 @@ fun support(navController: NavController) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Call Support Button (Centered at the Bottom)
+
         Text(
             text = "Call Support",
             color = Color.White,
             fontWeight = FontWeight.Bold,
             modifier = Modifier
                 .clickable {
-                    showDialog.value = true // Mostrar el diálogo
+                    showDialog.value = true
                 }
                 .align(Alignment.CenterHorizontally)
                 .padding(16.dp)
         )
     }
 
-    // Mostrar el diálogo de confirmación de llamada
     if (showDialog.value) {
         AlertDialog(
             onDismissRequest = { showDialog.value = false },
@@ -231,7 +228,7 @@ fun support(navController: NavController) {
                     color = Color.Black,
                     modifier = Modifier.clickable {
                         initiateCall(context, "+34601005983")
-                        showDialog.value = false // Cerrar el diálogo
+                        showDialog.value = false
                     }
                 )
             },
@@ -240,7 +237,7 @@ fun support(navController: NavController) {
                     text = "Cancel",
                     color = Color.Black,
                     modifier = Modifier.clickable {
-                        showDialog.value = false // Cerrar el diálogo
+                        showDialog.value = false
                     }
                 )
             }
@@ -248,7 +245,6 @@ fun support(navController: NavController) {
     }
 }
 
-// Función para realizar la llamada
 fun initiateCall(context: Context, phoneNumber: String) {
     val intent = Intent(Intent.ACTION_DIAL).apply {
         data = Uri.parse("tel:$phoneNumber")
@@ -261,9 +257,8 @@ fun reviews(navController: NavController, auth: FirebaseAuth) {
     val userId = auth.currentUser?.uid.toString()
 
     val reviews = remember { mutableStateListOf<Review>() }
-    val reviewAddedMessage = remember { mutableStateOf("") }  // Estado para el mensaje de éxito
+    val reviewAddedMessage = remember { mutableStateOf("") }
 
-    // Fetch reviews from Firestore in real-time
     LaunchedEffect(userId) {
         userId?.let { userId ->
             try {
@@ -289,7 +284,6 @@ fun reviews(navController: NavController, auth: FirebaseAuth) {
         }
     }
 
-    // Estado de las reseñas
     val ratingState = remember { mutableStateOf(0) }
     val reviewState = remember { mutableStateOf("") }
     val errorMessage = remember { mutableStateOf("") }
@@ -357,7 +351,7 @@ fun reviews(navController: NavController, auth: FirebaseAuth) {
                         userId = userId,
                         rating = ratingState.value,
                         text = reviewState.value,
-                        date = Timestamp.now() // Guardar como Timestamp en Firestore
+                        date = Timestamp.now()
                     )
                     val db = FirebaseFirestore.getInstance()
                     db.collection("reviews").add(newReview)
@@ -380,7 +374,6 @@ fun reviews(navController: NavController, auth: FirebaseAuth) {
             Text(text = "Submit Review", color = Color.Black)
         }
 
-        // Mostrar el mensaje de éxito o error de la reseña
         if (reviewAddedMessage.value.isNotEmpty()) {
             Text(
                 text = reviewAddedMessage.value,
@@ -413,12 +406,10 @@ fun ReviewItem(review: Review) {
             .background(Color.DarkGray, RoundedCornerShape(8.dp))
             .padding(16.dp)
     ) {
-        // Fila con la fecha y las estrellas
         Row(
             horizontalArrangement = Arrangement.Start,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Fecha
             val formattedDate = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(review.date.toDate())
             Text(
                 text = "Date: $formattedDate",
@@ -427,7 +418,6 @@ fun ReviewItem(review: Review) {
                 modifier = Modifier.padding(end = 8.dp)
             )
 
-            // Estrellas
             for (i in 1..5) {
                 Icon(
                     imageVector = if (i <= review.rating) Icons.Default.Star else Icons.Default.StarBorder,
@@ -439,7 +429,6 @@ fun ReviewItem(review: Review) {
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Texto de la reseña
         Text(text = review.text, color = Color.White)
     }
 }

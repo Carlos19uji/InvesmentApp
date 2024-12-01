@@ -139,10 +139,8 @@ fun LoginScreen(
                                 onUserLoggedIn(true)
                                 Toast.makeText(context, "Login successful!", Toast.LENGTH_SHORT).show()
 
-                                // Navegar a la pantalla principal o de usuario
-                                navController.navigate(Screen.CorrectLogIn.route) // Ajusta el nombre de la ruta según tu configuración
+                                navController.navigate(Screen.CorrectLogIn.route)
                             } else {
-                                // Error en las credenciales
                                 Toast.makeText(
                                     context,
                                     "Password or e-mail incorrect: ${task.exception?.message}",
@@ -166,7 +164,6 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(60.dp))
 
-        // Texto "Don't have an account?"
         Text(
             text = "Don't have an account?",
             fontSize = 18.sp,
@@ -320,7 +317,6 @@ fun create_account(
 
                                 userDoc.set(userData)
                                     .addOnSuccessListener {
-                                        // Navegar a la pantalla de Correct Login
                                         onUserLoggedIn(true)
                                         navController.navigate(Screen.CorrectLogIn.route) // Asegúrate de usar el nombre correcto de la ruta
                                     }

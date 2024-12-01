@@ -78,7 +78,7 @@ fun NormalClientBar(navController: NavController, auth: FirebaseAuth){
         )
         DropdownMenu (
             expanded = expanded.value,
-            onDismissRequest = { expanded.value = false } // Cierra el menú al hacer clic fuera
+            onDismissRequest = { expanded.value = false }
         ) {
             DropdownMenuItem(
                 text = {Text("Support")},
