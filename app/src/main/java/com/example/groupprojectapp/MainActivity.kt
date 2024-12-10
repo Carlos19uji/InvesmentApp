@@ -62,6 +62,7 @@ sealed class Screen(val route : String){
     object FundManagerClients : Screen("fund_manager_clients")
     object AddClient : Screen("add_client")
     object Reviews : Screen("reviews")
+    object Transactions : Screen("transactions")
 
     object Buy : Screen("buy_screen/{index}") {
         fun createRoute(index: Int): String {

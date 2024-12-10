@@ -5,7 +5,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 
 fun createPortfolioForNewUser(userID: String){
     val db = FirebaseFirestore.getInstance()
-    val userPorfolioRef = db.collection("users").document(userID).collection("portfolio")
+    val userPorfolioRef = db.collection("admins").document(userID).collection("portfolio")
 
     userPorfolioRef.get().addOnCompleteListener{ task ->
         if (task.isSuccessful){
@@ -33,7 +33,8 @@ fun createPortfolioForNewUser(userID: String){
 
 fun addItemPortfolio(userID: String, itemName: String, itemUnits: Int){
     val db =  FirebaseFirestore.getInstance()
-    val userPortfolioRef = db.collection("users").document(userID).collection("portfolio")
+    val userPortfolioRef = db.collection("admins").document(userID).collection("portfolio")
+
 
     userPortfolioRef.document(itemName).get().addOnCompleteListener{ task ->
         if (task.isSuccessful){
@@ -66,7 +67,7 @@ fun addItemPortfolio(userID: String, itemName: String, itemUnits: Int){
 
 fun removeItemFromPortfolio(userID: String, itemName: String, itemUnits: Int){
     val db = FirebaseFirestore.getInstance()
-    val userPortfolioRef = db.collection("users").document(userID).collection("portfolio")
+    val userPortfolioRef = db.collection("admins").document(userID).collection("portfolio")
 
     userPortfolioRef.document(itemName).get().addOnCompleteListener { task ->
         if (task.isSuccessful) {

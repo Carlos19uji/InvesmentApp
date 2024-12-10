@@ -81,6 +81,13 @@ fun NormalClientBar(navController: NavController, auth: FirebaseAuth){
             onDismissRequest = { expanded.value = false }
         ) {
             DropdownMenuItem(
+                text = {Text("Transactions")},
+                onClick = {
+                    navController.navigate(Screen.Transactions.route)
+                    expanded.value = false
+                }
+            )
+            DropdownMenuItem(
                 text = {Text("Support")},
                 onClick = {
                     navController.navigate(Screen.Support.route)

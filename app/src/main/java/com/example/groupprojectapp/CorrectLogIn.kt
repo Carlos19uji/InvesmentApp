@@ -125,7 +125,7 @@ fun HomeSummary(auth: FirebaseAuth, userId: String?) {
         userId?.let { uid ->
             try {
                 val db = FirebaseFirestore.getInstance()
-                val portfolioSnapshot = db.collection("users").document(uid).collection("portfolio").get().await()
+                val portfolioSnapshot = db.collection("admins").document(uid).collection("portfolio").get().await()
                 portfolioItems.clear()
 
                 for (document in portfolioSnapshot) {
@@ -196,44 +196,146 @@ fun HomeSummary(auth: FirebaseAuth, userId: String?) {
     }
 }
 
+
 @Composable
 fun ImportantAlertsVisual() {
+    val stockViewModel: StockViewModel = viewModel()
+    val viewModel: CryptoViewModel = viewModel()
+
+    // Lista de criptomonedas y acciones tecnológicas
+    val cryptoItems by viewModel.cryptoData.observeAsState(emptyList())
+    val stockList by stockViewModel.stockData.observeAsState(emptyList())
+
+    // Variables para almacenar la crypto/stock con mayor crecimiento y mayor bajada
+    var topCryptoUp by remember { mutableStateOf<Item?>(null) }
+    var topCryptoDown by remember { mutableStateOf<Item?>(null) }
+    var topStockUp by remember { mutableStateOf<Item?>(null) }
+    var topStockDown by remember { mutableStateOf<Item?>(null) }
+
+    // Lógica para determinar el crecimiento y la caída más grande
+    LaunchedEffect(cryptoItems, stockList) {
+        // Filtrar las criptomonedas y acciones tecnológicas
+        val cryptos = cryptoItems.filter { it.type == "crypto" }
+        val stocks = stockList.filter { it.type == "stock" }
+
+        // Encontrar la crypto con mayor y menor crecimiento
+        topCryptoUp = cryptos.maxByOrNull { it.percentangeChange }
+        topCryptoDown = cryptos.minByOrNull { it.percentangeChange }
+
+        // Encontrar la acción con mayor y menor crecimiento
+        topStockUp = stocks.maxByOrNull { it.percentangeChange }
+        topStockDown = stocks.minByOrNull { it.percentangeChange }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(150.dp)
+            .height(300.dp)
             .background(Color.Black, RoundedCornerShape(16.dp))
             .padding(16.dp)
     ) {
         Column {
-            Text(text = "Important Alerts", fontSize = 20.sp, color = Color.White)
+            Text(text = "Important Alerts", fontSize = 20.sp, color = Color.White, fontWeight = FontWeight.Bold)
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(32.dp))
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color.DarkGray, RoundedCornerShape(8.dp))
-                    .padding(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("Bitcoin has dropped by 10%", color = Color.Red, fontWeight = FontWeight.Bold)
+            // Mostrar alerta de mayor crecimiento en criptomonedas
+            topCryptoUp?.let { crypto ->
+                val message = if (crypto.percentangeChange >= 0) {
+                    "${crypto.name} has increased by ${"%.2f".format(crypto.percentangeChange)}%"
+                } else {
+                    "${crypto.name} has dropped by ${"%.2f".format(crypto.percentangeChange)}%"
+                }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color.DarkGray, RoundedCornerShape(8.dp))
+                        .padding(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = message,
+                        color = if (crypto.percentangeChange >= 0) Color.Green else Color.Red,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color.DarkGray, RoundedCornerShape(8.dp))
-                    .padding(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("Tesla stocks are up by 5%", color = Color.Green, fontWeight = FontWeight.Bold)
+            // Mostrar alerta de mayor caída en criptomonedas
+            topCryptoDown?.let { crypto ->
+                val message = if (crypto.percentangeChange >= 0) {
+                    "${crypto.name} has increased by ${"%.2f".format(crypto.percentangeChange)}%"
+                } else {
+                    "${crypto.name} has dropped by ${"%.2f".format(crypto.percentangeChange)}%"
+                }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color.DarkGray, RoundedCornerShape(8.dp))
+                        .padding(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = message,
+                        color = if (crypto.percentangeChange >= 0) Color.Green else Color.Red,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Mostrar alerta de mayor crecimiento en acciones tecnológicas
+            topStockUp?.let { stock ->
+                val message = if (stock.percentangeChange >= 0) {
+                    "${stock.name} stocks have increased by ${"%.2f".format(stock.percentangeChange)}%"
+                } else {
+                    "${stock.name} stocks have dropped by ${"%.2f".format(stock.percentangeChange)}%"
+                }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color.DarkGray, RoundedCornerShape(8.dp))
+                        .padding(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = message,
+                        color = if (stock.percentangeChange >= 0) Color.Green else Color.Red,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Mostrar alerta de mayor caída en acciones tecnológicas
+            topStockDown?.let { stock ->
+                val message = if (stock.percentangeChange >= 0) {
+                    "${stock.name} stocks have increased by ${"%.2f".format(stock.percentangeChange)}%"
+                } else {
+                    "${stock.name} stocks have dropped by ${"%.2f".format(stock.percentangeChange)}%"
+                }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color.DarkGray, RoundedCornerShape(8.dp))
+                        .padding(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = message,
+                        color = if (stock.percentangeChange >= 0) Color.Green else Color.Red,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
         }
     }
 }
+
 
 @Composable
 fun assests(navController: NavController) {
@@ -495,7 +597,7 @@ fun portfolio(navController: NavController, auth: FirebaseAuth) {
         id?.let { userID ->
             try {
                 val db = FirebaseFirestore.getInstance()
-                db.collection("users").document(userID).collection("portfolio")
+                db.collection("admins").document(userID).collection("portfolio")
                     .get()
                     .addOnSuccessListener { snapshot ->
                         portfolioItems.clear()

@@ -36,9 +36,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
-
-
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
+import java.util.UUID
 
 
 @Composable
@@ -59,7 +62,7 @@ fun buy_screen(Name: String, Price: Double, Image: Int, Percentage: Double, type
         val userId = auth.currentUser?.uid
         userId?.let { id ->
             val db = FirebaseFirestore.getInstance()
-            db.collection("users").document(id).collection("portfolio")
+            db.collection("admins").document(id).collection("portfolio")
                 .get()
                 .addOnSuccessListener { snapshot ->
                     var cryptoItems = 0
@@ -213,10 +216,23 @@ fun buy_screen(Name: String, Price: Double, Image: Int, Percentage: Double, type
                     Button(
                         onClick = {
                             if ((type == "crypto" && cryptoCount < 3) || (type == "stock" && stockCount < 10) || userHasItem) {
-
+7
+                                val (formattedDate, formattedTime) = getFormattedDataAndTime()
+                                val transaction = mapOf(
+                                    "id" to UUID.randomUUID().toString(),
+                                    "units" to quantity,
+                                    "date" to formattedDate,
+                                    "time" to formattedTime,
+                                    "amount" to Price * quantity,
+                                    "description" to "$quantity units of $Name purchased"
+                                )
                                 addItemPortfolio(auth.currentUser?.uid.toString(), Name, quantity)
                                 successMessage = "Purchase Successful!"
                                 errorMessage = ""
+                                val userID = auth.currentUser?.uid.toString()
+                                val db = FirebaseFirestore.getInstance()
+                                db.collection("admins").document(userID).update(
+                                    "transactions", FieldValue.arrayUnion(transaction))
                             } else {
                                 if (type == "crypto"){
                                     errorMessage = "You cannot buy this item due to the limits (Maximum of 3 different crypto assets)."
@@ -265,11 +281,11 @@ fun buy_screen(Name: String, Price: Double, Image: Int, Percentage: Double, type
 
 @Composable
 fun sell_screen(Name: String, Price: Double, Image: Int, Percentage: Double, auth: FirebaseAuth){
-    val userID = auth.currentUser?.uid?: return
+    val userID = auth.currentUser?.uid.toString()
     val db = FirebaseFirestore.getInstance()
     var unitsState by remember {  mutableStateOf(0) }
     DisposableEffect(Name) {
-        val itemRef = db.collection("users").document(userID).collection("portfolio").document(Name)
+        val itemRef = db.collection("admins").document(userID).collection("portfolio").document(Name)
         val listener = itemRef.addSnapshotListener{ snapshot, e ->
             if (e != null){
                 Log.e("sell_screen", "Listen failed", e)
@@ -434,7 +450,21 @@ fun sell_screen(Name: String, Price: Double, Image: Int, Percentage: Double, aut
                     modifier = Modifier.padding(8.dp)
                 ) {
                     Button(
-                        onClick = { removeItemFromPortfolio(auth.currentUser?.uid.toString(), Name, quantityToSell) },
+                        onClick = {
+                            val (formattedDate, formattedTime) = getFormattedDataAndTime()
+                            val transaction = mapOf(
+                                "id" to UUID.randomUUID().toString(),
+                                "units" to quantityToSell,
+                                "date" to formattedDate,
+                                "time" to formattedTime,
+                                "amount" to Price * quantityToSell,
+                                "description" to "$quantityToSell units of $Name sold"
+                            )
+                            removeItemFromPortfolio(auth.currentUser?.uid.toString(), Name, quantityToSell)
+                            val db1 = FirebaseFirestore.getInstance()
+                            db1.collection("admins").document(userID).update(
+                                "transactions", FieldValue.arrayUnion(transaction))
+                                  },
                         colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(16.dp)
@@ -450,4 +480,15 @@ fun sell_screen(Name: String, Price: Double, Image: Int, Percentage: Double, aut
             }
         }
     }
+}
+
+fun getFormattedDataAndTime() : Pair<String, String> {
+    val currentDate = Calendar.getInstance()
+    val dateFormat = SimpleDateFormat("d-MM-yyyy", Locale.getDefault())
+    val formattedDate = dateFormat.format(currentDate.time)
+
+    val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
+    val formattedTime = timeFormat.format(currentDate.time)
+
+    return  Pair(formattedDate, formattedTime)
 }

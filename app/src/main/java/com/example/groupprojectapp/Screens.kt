@@ -1,5 +1,6 @@
 package com.example.groupprojectapp
 
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -87,7 +88,6 @@ fun home_screen(onLoginClick: () -> Unit, onCreateAccountClick: () -> Unit) {
         }
     }
 }
-
 @Composable
 fun LoginScreen(
     onCreateAccountClick: () -> Unit,
@@ -133,14 +133,19 @@ fun LoginScreen(
         Button(
             onClick = {
                 if (emailState.value.isNotEmpty() && passwordState.value.isNotEmpty()) {
+                    Log.d("LoginScreen", "Attempting to sign in with email: ${emailState.value}")
+
                     auth.signInWithEmailAndPassword(emailState.value, passwordState.value)
                         .addOnCompleteListener { task ->
                             if (task.isSuccessful) {
+                                Log.d("LoginScreen", "Login successful!")
                                 onUserLoggedIn(true)
                                 Toast.makeText(context, "Login successful!", Toast.LENGTH_SHORT).show()
 
+                                // Navigate to the next screen after successful login
                                 navController.navigate(Screen.CorrectLogIn.route)
                             } else {
+                                Log.e("LoginScreen", "Login failed: ${task.exception?.message}")
                                 Toast.makeText(
                                     context,
                                     "Password or e-mail incorrect: ${task.exception?.message}",
@@ -149,7 +154,7 @@ fun LoginScreen(
                             }
                         }
                 } else {
-                    // Campos vacíos
+                    Log.d("LoginScreen", "Email or password is empty.")
                     Toast.makeText(
                         context,
                         "Please write your e-mail and password",
@@ -308,11 +313,14 @@ fun create_account(
                             val userId = task.result?.user?.uid
                             if (userId != null) {
                                 val db = FirebaseFirestore.getInstance()
-                                val userDoc = db.collection("users").document(userId)
+                                val userDoc = db.collection("admins").document(userId)
 
                                 val userData = mapOf(
                                     "email" to emailState.value,
-                                    "password" to passwordState.value
+                                    "password" to passwordState.value,
+                                    "name" to "",
+                                    "uid" to userId,
+                                    "transactions" to emptyList<String>()
                                 )
 
                                 userDoc.set(userData)
