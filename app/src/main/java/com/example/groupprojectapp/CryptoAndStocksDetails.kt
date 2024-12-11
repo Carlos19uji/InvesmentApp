@@ -6,7 +6,9 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -90,74 +92,6 @@ fun CryptoDetails(navController: NavController, cryptoName: String) {
             TimeIntervalButton("1m", selectedInterval) { selectedInterval = "30d" }
             TimeIntervalButton("1y", selectedInterval) { selectedInterval = "1y" }
             TimeIntervalButton("Max", selectedInterval) { selectedInterval = "Max" }
-        }
-
-        Spacer(modifier = Modifier.height(100.dp))
-
-        if (item != null) {
-            Row(
-                modifier = Modifier.fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(color = Color.White)
-                    .padding(8.dp)
-            ) {
-                Image(
-                    painter = painterResource(id = item.image),
-                    contentDescription = item.name,
-                    modifier = Modifier.weight(1f)
-                        .height(100.dp)
-                        .width(80.dp)
-                )
-                Column() {
-                    Text("24h")
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = "${"%.2f".format(item.percentangeChange)}%",
-                        color = if (item.percentangeChange >= 0) Color.Green else Color.Red,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-                Spacer(modifier = Modifier.width(16.dp))
-
-                Column {
-                    Text("7 days")
-                    Spacer(modifier = Modifier.height(16.dp))
-                    val change7d = priceChanges["${cryptoName}_7d"]
-                    Text(
-                        text = change7d?.let { "${"%.2f".format(it)}%" } ?: "N/A",
-                        color = if (change7d != null && change7d >= 0) Color.Green else Color.Red,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-                Spacer(modifier = Modifier.width(16.dp))
-
-                Column {
-                    Text("1 month")
-                    Spacer(modifier = Modifier.height(16.dp))
-                    val change30d = priceChanges["${cryptoName}_30d"]
-                    Text(
-                        text = change30d?.let { "${"%.2f".format(it)}%" } ?: "N/A",
-                        color = if (change30d != null && change30d >= 0) Color.Green else Color.Red,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-                Spacer(modifier = Modifier.width(16.dp))
-
-                Column {
-                    Text("1 year")
-                    Spacer(modifier = Modifier.height(16.dp))
-                    val change1y = priceChanges["${cryptoName}_1y"]
-                    Text(
-                        text = change1y?.let { "${"%.2f".format(it)}%" } ?: "N/A",
-                        color = if (change1y != null && change1y >= 0) Color.Green else Color.Red,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-            }
         }
     }
 }
@@ -306,20 +240,11 @@ fun StockDetails(navController: NavController, stockName: String) {
 
     val stockPriceHistory by viewModel.stockHistory.observeAsState(emptyList())
 
-    // Intervalo seleccionado
-    var selectedStockInterval by remember { mutableStateOf("1d") }
+    var selectedStockInterval by remember { mutableStateOf("24h") }
 
-    LaunchedEffect(stockName) {
-        viewModel.fetchStockHistory(stockName)
+    LaunchedEffect(stockName, selectedStockInterval) {
+        viewModel.fetchStockHistory(stockName, selectedStockInterval)
     }
-
-    val intervalToFilterMap = mapOf(
-        "24h" to 96,
-        "7d" to 672,
-        "30d" to 2880,
-        "1y" to 35040,
-        "Max" to Int.MAX_VALUE
-    )
 
     val filteredStockPriceHistory = remember(stockPriceHistory, selectedStockInterval) {
         filterStockHistoryByInterval(stockPriceHistory, selectedStockInterval)
@@ -337,10 +262,14 @@ fun StockDetails(navController: NavController, stockName: String) {
             color = Color.White,
             fontWeight = FontWeight.Bold
         )
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(50.dp))
 
         if (filteredStockPriceHistory.isEmpty()) {
-            Text("No data available for the selected interval.", color = Color.Gray)
+            Text(
+                text = "No data available for the selected interval.",
+                color = Color.Gray,
+                fontSize = 16.sp
+            )
         } else {
             StockPriceChart(filteredStockPriceHistory, selectedStockInterval)
         }
@@ -349,11 +278,11 @@ fun StockDetails(navController: NavController, stockName: String) {
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.Center
         ) {
-            intervalToFilterMap.keys.forEach { interval ->
-                StockTimeIntervalButton(interval, selectedStockInterval) {
-                    selectedStockInterval = interval
-                }
-            }
+            TimeIntervalButton("24h", selectedStockInterval) { selectedStockInterval = "24h" }
+            TimeIntervalButton("7d", selectedStockInterval) { selectedStockInterval = "7d" }
+            TimeIntervalButton("1m", selectedStockInterval) { selectedStockInterval = "30d" }
+            TimeIntervalButton("1y", selectedStockInterval) { selectedStockInterval = "1y" }
+            TimeIntervalButton("Max", selectedStockInterval) { selectedStockInterval = "Max" }
         }
     }
 }
@@ -404,26 +333,8 @@ fun StockPriceChart(priceHistory: List<TimeSeriesDaily>, interval: String) {
     }
 }
 
-@Composable
-fun StockTimeIntervalButton(interval: String, selectedInterval: String, onIntervalChange: () -> Unit) {
-    Button(
-        onClick = { onIntervalChange() },
-        modifier = Modifier
-            .padding(4.dp)
-            .border(1.dp, Color.Gray)
-            .clip(RoundedCornerShape(8.dp)),
-        colors = ButtonDefaults.buttonColors(containerColor = if (selectedInterval == interval) Color.Gray else Color.Black)
-    ) {
-        Text(
-            text = interval,
-            color = Color.White,
-            fontWeight = FontWeight.Bold
-        )
-    }
-}
 
 fun filterStockHistoryByInterval(fullHistory: List<TimeSeriesDaily>, interval: String): List<TimeSeriesDaily> {
-
     val intervalToFilterMap = mapOf(
         "24h" to 96,
         "7d" to 672,
@@ -434,7 +345,16 @@ fun filterStockHistoryByInterval(fullHistory: List<TimeSeriesDaily>, interval: S
 
     val pointsToShow = intervalToFilterMap[interval] ?: Int.MAX_VALUE
 
-    if (pointsToShow == Int.MAX_VALUE) return fullHistory
+    Log.d("FilterStockHistory", "Interval: $interval, Points to Show: $pointsToShow, Full History Size: ${fullHistory.size}")
+
+    if (fullHistory.isEmpty()) {
+        Log.d("FilterStockHistory", "No data available in fullHistory")
+    }
+
+    if (fullHistory.size <= pointsToShow) {
+        Log.d("FilterStockHistory", "Returning full history because size <= pointsToShow")
+        return fullHistory
+    }
 
     val step = fullHistory.size / pointsToShow
     val filteredHistory = mutableListOf<TimeSeriesDaily>()
@@ -447,15 +367,4 @@ fun filterStockHistoryByInterval(fullHistory: List<TimeSeriesDaily>, interval: S
     }
 
     return filteredHistory
-}
-
-fun parseDateToMillis(dateString: String): Long {
-    return try {
-        val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
-        val date = dateFormat.parse(dateString)
-        date?.time ?: 0L
-    } catch (e: Exception) {
-        Log.e("StockPriceChart", "Error al parsear la fecha: $dateString")
-        0L
-    }
 }

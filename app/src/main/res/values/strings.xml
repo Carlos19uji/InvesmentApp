@@ -1,4 +1,5 @@
 <resources>
     <string name="app_name">GroupProject</string>
     <string name="default_web_client_id">tu-id-de-cliente-de-google</string>
+    <string name="facebook_app_id">1203501580952195</string>
 </resources>

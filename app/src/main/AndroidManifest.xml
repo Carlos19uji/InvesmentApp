@@ -3,7 +3,7 @@
     package="com.example.groupprojectapp"
     xmlns:tools="http://schemas.android.com/tools">
 
-
+    <!-- Permisos necesarios -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
@@ -18,11 +18,19 @@
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
-        android:supportsRtl="true"
         android:theme="@style/Theme.GroupProject"
         android:enableOnBackInvokedCallback="true"
         tools:targetApi="31">
 
+        <!-- Meta-data para Facebook SDK -->
+        <meta-data
+            android:name="com.facebook.sdk.ApplicationId"
+            android:value="@string/facebook_app_id" />
+        <meta-data
+            android:name="com.facebook.sdk.ClientToken"
+            android:value="1203501580952195" /> <!-- Tu ID de cliente de Facebook -->
+
+        <!-- Actividad principal -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -33,5 +41,6 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
     </application>
 </manifest>

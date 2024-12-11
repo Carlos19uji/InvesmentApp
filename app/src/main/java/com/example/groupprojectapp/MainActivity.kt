@@ -37,9 +37,12 @@ import androidx.lifecycle.ViewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.groupprojectapp.R
+import com.facebook.AccessToken
 import com.facebook.CallbackManager
 import com.facebook.FacebookCallback
 import com.facebook.FacebookException
+import com.facebook.FacebookSdk
+import com.facebook.appevents.AppEventsLogger
 import com.facebook.login.LoginManager
 import com.facebook.login.LoginResult
 import com.google.android.gms.auth.api.signin.GoogleSignIn
@@ -88,13 +91,24 @@ sealed class Screen(val route : String){
 }
 
 class MainActivity : ComponentActivity() {
-    private lateinit var auth : FirebaseAuth
-    private lateinit var googleSignInClient : GoogleSignInClient
-    private lateinit var navController : NavController
+
+    private lateinit var auth: FirebaseAuth
+    private lateinit var googleSignInClient: GoogleSignInClient
+    private lateinit var navController: NavController
     private lateinit var callbackManager: CallbackManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Inicializar Facebook SDK
+        FacebookSdk.sdkInitialize(applicationContext)
+        AppEventsLogger.activateApp(application)
+
+        // Inicializar el callbackManager antes de usarlo
+        callbackManager = CallbackManager.Factory.create()
+
+        // Establecer el callback de Facebook
+        setFacebookCallback()
 
         Notification.createNotificationChannel(this)
 
@@ -110,7 +124,6 @@ class MainActivity : ComponentActivity() {
         }
 
         auth = FirebaseAuth.getInstance()
-        callbackManager = CallbackManager.Factory.create()
 
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestIdToken(getString(R.string.default_web_client_id))
@@ -127,130 +140,110 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        Log.d("MainActivity", "onActivityResult called with requestCode: $requestCode")
-        callbackManager.onActivityResult(requestCode, resultCode, data)
-    }
 
-    private val googleSignInLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        Log.d("MainActivity", "Google SignIn launcher result received: ${result.resultCode}")
-        val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
-        try {
-            val account = task.getResult(ApiException::class.java)!!
-            Log.d("MainActivity", "Google sign-in successful, account: ${account.displayName}")
-            firebaseAuthWithGoogle(account.idToken!!, navController)
-        } catch (e: ApiException) {
-            Log.e("MainActivity", "Google sign-in failed: ${e.message}", e)
-            Toast.makeText(this, "Google sign-in failed: ${e.message}", Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    private fun firebaseAuthWithGoogle(idToken: String, navController: NavController) {
-        Log.d("MainActivity", "firebaseAuthWithGoogle called with idToken: $idToken")
-        val credential = GoogleAuthProvider.getCredential(idToken, null)
-
-        auth.signInWithCredential(credential).addOnCompleteListener(this) { task ->
-            if (task.isSuccessful) {
-                val userId = auth.currentUser?.uid
-                Log.d("MainActivity", "Sign in successful, userId: $userId")
-                if (userId != null) {
-                    createPortfolioForNewUser(userId)
-                    Log.d("MainActivity", "Navigating to Correct Log In screen")
-                    navController.navigate(Screen.CorrectLogIn.route)
-                } else {
-                    Log.e("MainActivity", "Authentication failed: Unable to retrieve user ID.")
-                    Toast.makeText(this, "Authentication failed: Unable to retrieve user ID.", Toast.LENGTH_SHORT).show()
-                }
-            } else {
-                Log.e("MainActivity", "Authentication Failed.")
-                Toast.makeText(this, "Authentication Failed.", Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
-
+    // Función para iniciar sesión con Google
     fun signInWithGoogle() {
         Log.d("MainActivity", "signInWithGoogle called")
         val signInIntent = googleSignInClient.signInIntent
-        googleSignInLauncher.launch(signInIntent)
+        startActivityForResult(signInIntent, RC_SIGN_IN)
     }
 
+    // Función para crear cuenta con Google
     fun createAccountWithGoogle() {
         Log.d("MainActivity", "createAccountWithGoogle called")
-        val signInIntent = googleSignInClient.signInIntent
-        googleSignInLauncher.launch(signInIntent)
+        signInWithGoogle()
     }
 
-
+    // Función para iniciar sesión con Facebook
     fun logInWithFacebook() {
-        val loginManager = LoginManager.getInstance()
-        loginManager.logInWithReadPermissions(this, listOf("email", "public_profile"))
-        loginManager.registerCallback(callbackManager, object : FacebookCallback<LoginResult> {
-            override fun onSuccess(result: LoginResult) {
-                val token = result.accessToken?.token
-                if (token != null) {
-                    val credential = FacebookAuthProvider.getCredential(token)
-                    FirebaseAuth.getInstance().signInWithCredential(credential)
-                        .addOnCompleteListener(this@MainActivity) { task ->
-                            if (task.isSuccessful) {
-                                val userId = FirebaseAuth.getInstance().currentUser?.uid
-                                if (userId != null) {
-
-                                }
-                            } else {
-                                Toast.makeText(this@MainActivity, "Authentication failed: ${task.exception?.message}", Toast.LENGTH_SHORT).show()
-                            }
-                        }
-                } else {
-                    Toast.makeText(this@MainActivity, "Token error: Token is null", Toast.LENGTH_SHORT).show()
-                }
-            }
-
-            override fun onCancel() {
-                Toast.makeText(this@MainActivity, "Login canceled", Toast.LENGTH_SHORT).show()
-            }
-
-            override fun onError(error: FacebookException) {
-                Toast.makeText(this@MainActivity, "Login error: ${error.message}", Toast.LENGTH_SHORT).show()
-            }
-        })
+        Log.d("MainActivity", "logInWithFacebook called")
+        LoginManager.getInstance().logInWithReadPermissions(this, listOf("email", "public_profile"))
     }
 
-
+    // Función para crear cuenta con Facebook
     fun createAccountWithFacebook() {
-        val loginManager = LoginManager.getInstance()
-        loginManager.logInWithReadPermissions(this, listOf("email", "public_profile"))
-        loginManager.registerCallback(callbackManager, object : FacebookCallback<LoginResult> {
-            override fun onSuccess(result: LoginResult) {
-                val token = result.accessToken?.token
-                if (token != null) {
-                    val credential = FacebookAuthProvider.getCredential(token)
-                    FirebaseAuth.getInstance().signInWithCredential(credential)
-                        .addOnCompleteListener(this@MainActivity) { task ->
-                            if (task.isSuccessful) {
-                                val userId = FirebaseAuth.getInstance().currentUser?.uid
-                                if (userId != null) {
-                                        createPortfolioForNewUser(userId)
-                                }
-                            } else {
-                                Toast.makeText(this@MainActivity, "Account creation failed: ${task.exception?.message}", Toast.LENGTH_SHORT).show()
-                            }
-                        }
+        Log.d("MainActivity", "createAccountWithFacebook called")
+        logInWithFacebook()
+    }
+
+    // Establecer el callback de Facebook para manejar el login
+    private fun setFacebookCallback() {
+        LoginManager.getInstance().registerCallback(callbackManager,
+            object : FacebookCallback<LoginResult> {
+                override fun onSuccess(result: LoginResult) {
+                    Log.d("MainActivity", "Facebook login success")
+                    val accessToken = result.accessToken
+                    // Usa el token de acceso de Facebook para obtener la información del usuario o autenticarlo en Firebase
+                    handleFacebookAccessToken(accessToken)
+                }
+
+                override fun onCancel() {
+                    Log.d("MainActivity", "Facebook login cancelled")
+                }
+
+                override fun onError(error: FacebookException) {
+                    Log.e("MainActivity", "Facebook login failed: ${error.localizedMessage}")
+                }
+            })
+    }
+
+    // Manejar el token de acceso de Facebook
+    private fun handleFacebookAccessToken(token: AccessToken?) {
+        if (token != null) {
+            // Aquí es donde obtienes el token y lo usas para autenticar con Firebase
+            val credential = FacebookAuthProvider.getCredential(token.token)
+            auth.signInWithCredential(credential)
+                .addOnCompleteListener(this) { task ->
+                    if (task.isSuccessful) {
+                        Log.d("MainActivity", "Facebook sign-in successful")
+                    } else {
+                        Log.e("MainActivity", "Facebook sign-in failed: ${task.exception?.localizedMessage}")
+                    }
+                }
+        }
+    }
+
+    // Override onActivityResult para manejar los resultados del login de Google y Facebook
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+
+        Log.d("MainActivity", "onActivityResult called with requestCode: $requestCode")
+
+        // Verifica si el resultado es para el inicio de sesión de Google
+        if (requestCode == RC_SIGN_IN) {
+            val task = GoogleSignIn.getSignedInAccountFromIntent(data)
+            try {
+                val account = task.getResult(ApiException::class.java)
+                if (account != null) {
+                    firebaseAuthWithGoogle(account.idToken!!)
+                }
+            } catch (e: ApiException) {
+                Log.e("MainActivity", "Google sign-in failed: ${e.localizedMessage}")
+            }
+        } else {
+            // Pasa los resultados del login de Facebook al callback manager
+            callbackManager.onActivityResult(requestCode, resultCode, data)
+        }
+    }
+
+    // Función para autenticar a Firebase con Google
+    private fun firebaseAuthWithGoogle(idToken: String) {
+        val credential = GoogleAuthProvider.getCredential(idToken, null)
+        auth.signInWithCredential(credential)
+            .addOnCompleteListener(this) { task ->
+                if (task.isSuccessful) {
+                    Log.d("MainActivity", "Google sign-in successful")
                 } else {
-                    Toast.makeText(this@MainActivity, "Token error: Token is null", Toast.LENGTH_SHORT).show()
+                    Log.e("MainActivity", "Google sign-in failed: ${task.exception?.localizedMessage}")
                 }
             }
+    }
 
-            override fun onCancel() {
-                Toast.makeText(this@MainActivity, "Account creation canceled", Toast.LENGTH_SHORT).show()
-            }
-
-            override fun onError(error: FacebookException) {
-                Toast.makeText(this@MainActivity, "Account creation error: ${error.message}", Toast.LENGTH_SHORT).show()
-            }
-        })
+    companion object {
+        private const val RC_SIGN_IN = 9001
     }
 }
+
 
 @Composable
 fun Greeting(name: String, modifier: Modifier = Modifier) {

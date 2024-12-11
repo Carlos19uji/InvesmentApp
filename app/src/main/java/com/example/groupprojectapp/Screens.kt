@@ -33,6 +33,11 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import retrofit2.Call
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
+import retrofit2.http.Body
+import retrofit2.http.POST
 
 
 @Composable
@@ -258,6 +263,30 @@ fun forgot_password(auth: FirebaseAuth, navController: NavController){
     }
 }
 
+data class EmailRequest(
+    val subject: String,
+    val recipient: String,
+    val name: String,
+    val message: String,
+    val html: String
+)
+
+interface EmailService {
+    @POST("send-mail")
+    fun sendMail(@Body emailRequest: EmailRequest): Call<Void>
+}
+
+object EmailRetrofitClient {
+    private const val BASE_URL = "http://your-flask-server-url" // Reemplaza esto con la URL de tu servidor Flask
+
+    val retrofit: Retrofit = Retrofit.Builder()
+        .baseUrl(BASE_URL)
+        .addConverterFactory(GsonConverterFactory.create())
+        .build()
+
+    val emailService: EmailService = retrofit.create(EmailService::class.java)
+}
+
 
 @Composable
 fun create_account(
@@ -272,6 +301,31 @@ fun create_account(
     var passwordState = remember { mutableStateOf("") }
     val errorMessage = remember { mutableStateOf<String?>(null) }
 
+    fun sendWelcomeEmail(email: String) {
+        val emailRequest = EmailRequest(
+            subject = "Welcome to Our App",
+            recipient = email,
+            name = email,
+            message = "Thank you for creating an account with us!",
+            html = "signUpMail.html"
+        )
+
+        EmailRetrofitClient.emailService.sendMail(emailRequest).enqueue(object : retrofit2.Callback<Void> {
+            override fun onResponse(call: Call<Void>, response: retrofit2.Response<Void>) {
+                if (response.isSuccessful) {
+                    println("Email sent successfully!")
+                } else {
+                    println("Failed to send email: ${response.errorBody()?.string()}")
+                }
+            }
+
+            override fun onFailure(call: Call<Void>, t: Throwable) {
+                println("Error sending email: ${t.localizedMessage}")
+            }
+        })
+    }
+
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -282,10 +336,21 @@ fun create_account(
         Spacer(modifier = Modifier.height(35.dp))
 
         create_with_facebook {
-            createAccountWithFacebook()
+            try {
+                Log.d("CreateAccount", "Facebook create account button clicked")
+                createAccountWithFacebook()
+            } catch (e: Exception) {
+                Log.e("CreateAccount", "Error during Facebook account creation: ${e.localizedMessage}")
+            }
         }
+
         create_with_google {
-            createAccountWithGoogle()
+            try {
+                Log.d("CreateAccount", "Google create account button clicked")
+                createAccountWithGoogle()
+            } catch (e: Exception) {
+                Log.e("CreateAccount", "Error during Google account creation: ${e.localizedMessage}")
+            }
         }
 
         Spacer(modifier = Modifier.height(30.dp))
@@ -325,8 +390,10 @@ fun create_account(
 
                                 userDoc.set(userData)
                                     .addOnSuccessListener {
+                                        sendWelcomeEmail(emailState.value)
                                         onUserLoggedIn(true)
-                                        navController.navigate(Screen.CorrectLogIn.route) // Asegúrate de usar el nombre correcto de la ruta
+                                        navController.navigate(Screen.CorrectLogIn.route)
+                                    // Asegúrate de usar el nombre correcto de la ruta
                                     }
                                     .addOnFailureListener { e ->
                                         errorMessage.value = "Error saving user: ${e.localizedMessage}"
