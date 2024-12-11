@@ -34,6 +34,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -44,6 +45,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import kotlin.math.abs
 
 
 data class Item(val name: String, val image: Int, var price: Double, var percentangeChange : Double, val type: String)
@@ -104,10 +106,12 @@ fun Correct_Log_In_Screen(auth: FirebaseAuth) {
 
 @Composable
 fun HomeSummary(auth: FirebaseAuth, userId: String?) {
+    val context = LocalContext.current
     var TotalStock by remember { mutableStateOf(0.0) }
     var TotalCrypto by remember { mutableStateOf(0.0) }
     var Total by remember { mutableStateOf(0.0) }
     val portfolioItems = remember { mutableStateListOf<PortfolioData>() }
+
 
 
     val stockViewModel: StockViewModel = viewModel()
@@ -151,6 +155,11 @@ fun HomeSummary(auth: FirebaseAuth, userId: String?) {
                             "crypto" -> TotalCrypto += value
                         }
                         Total += value
+                        if (abs(realTime.percentangeChange) >= 5){
+                            val direction = if (realTime.percentangeChange > 0) "increased" else "decreased"
+                            val message = "${realTime.name} has $direction by ${"%.2f".format(abs(realTime.percentangeChange))}%"
+                            Notification.sendPriceNotification(context, "${realTime.name} Alert", message)
+                        }
                     }
                 }
             } catch (e: Exception) {

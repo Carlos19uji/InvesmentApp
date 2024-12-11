@@ -1,6 +1,7 @@
 package com.example.groupprojectapp
 
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
@@ -94,6 +95,19 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        Notification.createNotificationChannel(this)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val requestPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted: Boolean ->
+                if (isGranted) {
+                    Log.d("MainActivity", "Notification permission granted")
+                } else {
+                    Log.e("MainActivity", "Notification permission denied")
+                }
+            }
+            Notification.requestNotificationPermission(this, requestPermissionLauncher)
+        }
 
         auth = FirebaseAuth.getInstance()
         callbackManager = CallbackManager.Factory.create()
